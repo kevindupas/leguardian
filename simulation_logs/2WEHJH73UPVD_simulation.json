@@ -1,0 +1,280 @@
+{
+  "bracelet_id": "2WEHJH73UPVD",
+  "name": "TestBracelet_Full",
+  "final_battery": 72,
+  "final_status": "active",
+  "final_location": {
+    "latitude": 48.85626354,
+    "longitude": 2.3519006,
+    "accuracy": 15
+  },
+  "log_entries": [
+    {
+      "timestamp": "2025-11-03T05:37:01.203728",
+      "action": "AUTHENTICATED",
+      "details": {
+        "bracelet_id": 10,
+        "commands_endpoint": "/api/devices/commands"
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:37:01.223387",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 97,
+        "location": [
+          48.85656515269672,
+          2.352169658558299
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:37:01.242451",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:06.288809",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:11.333606",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 96,
+        "location": [
+          48.85655800359784,
+          2.352135504297193
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:37:11.355858",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:16.406635",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:21.462812",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 93,
+        "location": [
+          48.85646789192432,
+          2.35210852726081
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:37:21.484732",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:26.543084",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:31.599331",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 90,
+        "location": [
+          48.856465587664665,
+          2.352017642177476
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:37:31.622002",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:36.686064",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:41.731098",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 89,
+        "location": [
+          48.85640932055975,
+          2.351940699664055
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:37:41.749602",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:46.809971",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:51.874562",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 86,
+        "location": [
+          48.85634095172048,
+          2.351939626219669
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:37:51.897350",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:37:56.949874",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:02.000835",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 83,
+        "location": [
+          48.85635022260389,
+          2.351971907768504
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:38:02.021346",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:07.065586",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:12.105008",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 81,
+        "location": [
+          48.85641682907617,
+          2.351876395016896
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:38:12.123604",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:17.177647",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:22.238257",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 78,
+        "location": [
+          48.85645976827525,
+          2.3518501553670728
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:38:22.260826",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:27.306941",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:32.360262",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 76,
+        "location": [
+          48.856430937929154,
+          2.3518188944100533
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:38:32.382815",
+      "action": "BUTTON_LOST_FAILED",
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:38:32.401717",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:37.459230",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:42.519310",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 75,
+        "location": [
+          48.85635461598441,
+          2.3518490441672517
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:38:42.541903",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:47.593281",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:52.644952",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 72,
+        "location": [
+          48.85626354043804,
+          2.351900604393226
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:38:52.666420",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:38:57.711233",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    }
+  ]
+}

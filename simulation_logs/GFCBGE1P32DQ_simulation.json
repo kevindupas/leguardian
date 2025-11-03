@@ -1,0 +1,147 @@
+{
+  "bracelet_id": "GFCBGE1P32DQ",
+  "name": "TestBracelet_Emergency",
+  "final_battery": 90,
+  "final_status": "active",
+  "final_location": {
+    "latitude": 48.85656761,
+    "longitude": 2.35219555,
+    "accuracy": 15
+  },
+  "log_entries": [
+    {
+      "timestamp": "2025-11-03T05:39:31.671701",
+      "action": "AUTHENTICATED",
+      "details": {
+        "bracelet_id": 11,
+        "commands_endpoint": "/api/devices/commands"
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:39:31.690207",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 98,
+        "location": [
+          48.85652649141009,
+          2.3522869111731266
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:39:31.708142",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:39:36.766350",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:39:41.815049",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 95,
+        "location": [
+          48.85645244976263,
+          2.352217797030288
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:39:41.833394",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:39:46.887138",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:39:51.941004",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 93,
+        "location": [
+          48.856438488028125,
+          2.352250968025135
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:39:51.963116",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:39:57.026309",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:40:02.080580",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 92,
+        "location": [
+          48.85646894843723,
+          2.352172670822195
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:40:02.103049",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:40:07.152219",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:40:12.191765",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 91,
+        "location": [
+          48.856494941049945,
+          2.352112724205811
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:40:12.210044",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:40:17.267885",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:40:22.329047",
+      "action": "HEARTBEAT_OK",
+      "details": {
+        "battery": 90,
+        "location": [
+          48.85656761000492,
+          2.352195546020075
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-03T05:40:22.352255",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    },
+    {
+      "timestamp": "2025-11-03T05:40:27.411321",
+      "action": "NO_PENDING_COMMANDS",
+      "details": {}
+    }
+  ]
+}

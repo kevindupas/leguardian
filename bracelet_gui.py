@@ -29,7 +29,7 @@ from PyQt5.QtGui import QPixmap, QImage, QColor, QFont, QPainter, QBrush, QPen, 
 from PyQt5.QtCore import QTimer as QtTimer
 
 # Configuration
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
+BACKEND_URL = os.getenv('BACKEND_URL', 'https://api.tracklify.app')
 API_ENDPOINT = f"{BACKEND_URL}/api/devices"
 QRCODE_DIR = Path("./qrcodes")
 SIMULATION_LOG_DIR = Path("./simulation_logs")
@@ -77,7 +77,12 @@ class VirtualBracelet:
                 self.log_action("AUTHENTICATED", response.json())
                 return True
             else:
-                self.log_action("AUTH_FAILED", {"status": response.status_code})
+                # Log the actual error response from API
+                try:
+                    error_data = response.json()
+                except:
+                    error_data = {"text": response.text}
+                self.log_action("AUTH_FAILED", {"status": response.status_code, "response": error_data})
                 return False
         except Exception as e:
             self.log_action("AUTH_ERROR", {"error": str(e)})
@@ -677,20 +682,19 @@ class BraceletGUI(QMainWindow):
         unique_code = generate_unique_code()
         name = f"Bracelet_{unique_code[:6]}"
 
-        # Create in database
+        # Create in database via API
         try:
-            result = subprocess.run(
-                ['php', 'leguardian-backend/artisan', 'tinker', '--execute',
-                 f'$b = \\App\\Models\\Bracelet::firstOrCreate(['
-                 f'"unique_code" => "{unique_code}"'
-                 f'], ["name" => "{name}", "status" => "active"]);'
-                 f'echo "OK";'],
-                capture_output=True,
-                text=True,
-                timeout=10
+            response = requests.post(
+                f"{BACKEND_URL}/api/devices/create",
+                json={"unique_code": unique_code, "name": name, "status": "active"},
+                headers={"Content-Type": "application/json"}
             )
+            if response.status_code != 201 and response.status_code != 200:
+                error_msg = response.json() if response.text else "Unknown error"
+                self.add_log(f"❌ Failed to create bracelet: {error_msg}")
+                return
         except Exception as e:
-            self.add_log(f"❌ DB Error: {e}")
+            self.add_log(f"❌ API Error creating bracelet: {e}")
             return
 
         # Create bracelet instance
@@ -716,7 +720,15 @@ class BraceletGUI(QMainWindow):
             self.btn_start_sim.setEnabled(True)
             self.btn_save.setEnabled(True)
         else:
-            self.add_log(f"❌ Authentication failed")
+            # Display error details
+            auth_log = self.bracelet.log[-1] if self.bracelet.log else {}
+            error_msg = f"❌ Authentication failed"
+            if auth_log.get('action') == 'AUTH_FAILED':
+                details = auth_log.get('details', {})
+                status = details.get('status', 'Unknown')
+                response = details.get('response', {})
+                error_msg += f" - Status: {status}, Response: {response}"
+            self.add_log(error_msg)
 
     def on_start_simulation(self):
         """Start simulation"""

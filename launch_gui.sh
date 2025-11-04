@@ -5,7 +5,7 @@ cd "$(dirname "$0")" || exit 1
 
 # Check if backend is running
 echo "🔍 Checking backend..."
-if ! curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
+if ! curl -s https://api.tracklify.app/api/health > /dev/null 2>&1; then
     echo "❌ Backend is not running!"
     echo "Start it with: cd leguardian-backend && php artisan serve --host=localhost --port=8000"
     exit 1

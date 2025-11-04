@@ -38,6 +38,9 @@ Route::prefix('mobile')->middleware('auth:sanctum')->group(function () {
 
 // Device (Bracelet) Routes - No authentication (for ESP32)
 Route::prefix('devices')->group(function () {
+    // Create new bracelet (for testing/GUI)
+    Route::post('create', [DeviceController::class, 'create']);
+
     // Authentication
     Route::post('auth', [DeviceController::class, 'authenticate']);
 

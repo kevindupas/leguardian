@@ -19,7 +19,7 @@ from io import BytesIO
 from pathlib import Path
 
 # Configuration
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
+BACKEND_URL = os.getenv('BACKEND_URL', 'https://api.tracklify.app')
 API_ENDPOINT = f"{BACKEND_URL}/api/devices"
 QRCODE_DIR = Path("./qrcodes")
 SIMULATION_LOG_DIR = Path("./simulation_logs")

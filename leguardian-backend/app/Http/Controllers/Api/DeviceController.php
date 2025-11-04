@@ -12,6 +12,37 @@ use Illuminate\Support\Facades\Validator;
 class DeviceController extends Controller
 {
     /**
+     * Create new bracelet (for testing/GUI)
+     * POST /api/devices/create
+     */
+    public function create(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'unique_code' => 'required|string|unique:bracelets,unique_code',
+            'name' => 'required|string',
+            'status' => 'nullable|string|in:active,inactive,lost,emergency',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $bracelet = Bracelet::create([
+            'unique_code' => $request->unique_code,
+            'name' => $request->name,
+            'status' => $request->status ?? 'active',
+            'battery_level' => 100,
+        ]);
+
+        return response()->json([
+            'id' => $bracelet->id,
+            'unique_code' => $bracelet->unique_code,
+            'name' => $bracelet->name,
+            'status' => $bracelet->status,
+        ], 201);
+    }
+
+    /**
      * Authenticate device by unique code
      * POST /api/devices/auth
      */

@@ -384,7 +384,7 @@ export const AddBraceletModal = ({
         </DialogContent>
       </Dialog>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer TEST */}
       {isMobile && (
         <Drawer open={open} onOpenChange={handleOpenChange}>
           <DrawerContent className="max-h-none!">

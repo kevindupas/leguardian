@@ -20,5 +20,22 @@ export default defineConfig({
       '@/lib/utils': path.resolve(__dirname, './src/lib/utils'),
       '@/components/ui': path.resolve(__dirname, './src/components/ui'),
     }
+  },
+  build: {
+    target: 'es2020',
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+          'i18n-vendor': ['i18next', 'react-i18next'],
+          'map-vendor': ['leaflet', 'react-leaflet'],
+          'qr-vendor': ['jsqr'],
+          'toast-vendor': ['sonner'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
   }
 })

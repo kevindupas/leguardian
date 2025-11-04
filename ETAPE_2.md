@@ -10,6 +10,11 @@
 - 📦 72% Bundle Size Reduction (988KB → 276KB)
 - ⚡ Code Splitting & Lazy Loading
 - 🎯 Performance Optimized Build
+- 📱 **Progressive Web App (PWA) Support**
+  - Service worker with offline caching
+  - Home screen installation
+  - Native app-like experience
+  - Works offline after first load
 
 ---
 
@@ -188,6 +193,57 @@ Mobile
 - Auto-close on success
 - Full dark mode support
 - Translations FR/EN
+
+### 7. Progressive Web App (PWA) Support
+**Fichiers**:
+- `vite.config.ts` - PWA plugin configuration
+- `public/manifest.json` - Web app manifest
+- `src/hooks/usePWA.ts` - Installation hook
+- `src/components/PWAInstallButton.tsx` - Install UI
+- `index.html` - PWA meta tags
+
+**PWA Features**:
+```
+Installation:
+├── Home screen install (Android)
+├── Install prompt detection
+├── Install button in header
+└── iOS web app mode support
+
+Offline Support:
+├── Service worker caching
+├── Asset precaching (41 entries)
+├── Image caching (30 days)
+├── API caching (24 hours)
+└── Network-first strategy for APIs
+
+Performance:
+├── 1033.73 KiB precached assets
+├── Workbox optimization
+├── Automatic updates
+└── Background sync ready
+
+Manifest Configuration:
+├── App name: LeGuardian - Safety First
+├── Icons: 192x192, 512x512 SVG
+├── Theme color: #4f46e5
+├── Display: Standalone (no browser UI)
+├── Orientation: Portrait primary
+├── Shortcuts: Dashboard, Add Bracelet, Map
+└── Categories: Health, Utilities
+```
+
+**iOS Support**:
+- apple-mobile-web-app-capable
+- apple-touch-icon for home screen
+- black-translucent status bar
+- Viewport fit for notch support
+
+**Android/Chrome Support**:
+- beforeinstallprompt event handling
+- Install button appears when installable
+- Toast notification on install
+- appinstalled event confirmation
 
 ---
 
@@ -501,6 +557,11 @@ Performance Gains:
 - ✅ Toast notifications (success/error)
 - ✅ Code splitting and lazy loading
 - ✅ Bundle size optimized to <300KB
+- ✅ Progressive Web App (PWA) support
+  - Service worker with offline caching
+  - Home screen installation
+  - App shortcuts
+  - Native app experience
 
 ### Fonctionnalités testées
 - ✅ Dark mode toggle persists
@@ -735,6 +796,8 @@ package.json                            (Dependencies)
 - [x] Bundle size optimization (72% reduction)
 
 ### ✅ Nouvelle Session Accomplishments
+
+**QR Scanner & Notifications**:
 - [x] Installed jsQR library
 - [x] Created QRScanner.tsx component
 - [x] Integrated scanner in AddBraceletModal
@@ -743,12 +806,31 @@ package.json                            (Dependencies)
 - [x] Implemented success/error toasts
 - [x] Added theme toggle feedback
 - [x] Added language change feedback
+
+**Performance Optimization**:
 - [x] Configured vite for code splitting
 - [x] Set up manual chunks for vendors
 - [x] Implemented lazy loading
 - [x] Installed terser for minification
 - [x] Optimized bundle to 276KB
-- [x] Updated ÉTAPE_2.md documentation
+
+**PWA Implementation**:
+- [x] Installed vite-plugin-pwa
+- [x] Created manifest.json with app metadata
+- [x] Created usePWA.ts hook for installation
+- [x] Created PWAInstallButton component
+- [x] Configured Workbox service worker
+- [x] Added PWA meta tags to index.html
+- [x] Set up image & API caching strategies
+- [x] Created SVG app icons (192x192, 512x512)
+- [x] Integrated install button in Header
+- [x] iOS web app support configuration
+
+**Documentation**:
+- [x] Updated ÉTAPE_2.md with all features
+- [x] Added PWA features documentation
+- [x] Updated statistics and metrics
+- [x] Created comprehensive checklist
 
 ### ⚠️ Partiellement (Ready for Testing)
 - [x] Modal responsive (desktop tested, mobile ready)
@@ -785,6 +867,11 @@ L'ÉTAPE 2 a livré une interface **professionnelle, moderne, performante et acc
 ✅ **Performance**: 72% réduction de bundle (988KB → 276KB)
 ✅ **Code Splitting**: Chargement intelligent des dépendances
 ✅ **Lazy Loading**: Pages chargées à la demande
+✅ **Progressive Web App**:
+  - Installation sur écran d'accueil
+  - Fonctionnement hors ligne
+  - Expérience app native
+  - Service worker avec caching intelligent
 
 ### Prêt pour:
 - ✅ Démonstration client

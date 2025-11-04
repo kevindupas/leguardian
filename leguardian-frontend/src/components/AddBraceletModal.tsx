@@ -182,8 +182,7 @@ const BraceletRegistrationContent = ({
                 value={qrInput}
                 onChange={(e) => setQrInput(e.target.value)}
                 placeholder={t("braceletRegister.codeWillAppear")}
-                autoFocus
-                disabled={isProcessing}
+                disabled
               />
               <p className="text-xs text-muted-foreground">
                 {t("braceletRegister.qrCodeLocation")}
@@ -236,7 +235,6 @@ const BraceletRegistrationContent = ({
                 maxLength={20}
                 className="font-mono"
                 disabled={isProcessing}
-                autoFocus
               />
               <p className="text-xs text-muted-foreground">
                 {t("braceletRegister.codeFormat")}

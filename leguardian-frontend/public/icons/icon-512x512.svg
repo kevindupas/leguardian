@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#4f46e5" rx="50"/>
+
+  <!-- Zap/Lightning icon -->
+  <g transform="translate(256, 256)">
+    <path d="M 0,-120 L -60,20 L -30,20 L -100,160 L 100,-160 L 30,20 L 60,20 Z" fill="white" stroke="white" stroke-width="6"/>
+  </g>
+</svg>

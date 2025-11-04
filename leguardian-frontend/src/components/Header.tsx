@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { Menu, Zap, Moon, Sun, LogOut, Bell } from 'lucide-react'
+import { Menu, Zap, Moon, Sun, LogOut, Bell, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks'
 import { useTheme } from '../contexts/ThemeContext'
+import { usePWA } from '../hooks/usePWA'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -24,6 +25,7 @@ export const Header = ({ onMenuClick, sidebarOpen, onSidebarToggle }: HeaderProp
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { t, i18n } = useTranslation()
+  const { isInstallable, installApp } = usePWA()
   const navigate = useNavigate()
   const [languageDrawerOpen, setLanguageDrawerOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
@@ -81,6 +83,20 @@ export const Header = ({ onMenuClick, sidebarOpen, onSidebarToggle }: HeaderProp
 
         {/* Right Section - Controls */}
         <div className="flex items-center gap-2">
+          {/* PWA Install Button */}
+          {isInstallable && (
+            <Button
+              onClick={installApp}
+              size="sm"
+              variant="outline"
+              title="Install LeGuardian as an app"
+              className="gap-2 hidden sm:flex"
+            >
+              <Download className="w-4 h-4" />
+              Install App
+            </Button>
+          )}
+
           {/* Notifications Button */}
           <Button
             variant="ghost"

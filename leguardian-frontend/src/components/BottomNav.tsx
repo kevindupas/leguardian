@@ -46,7 +46,7 @@ export const BottomNav = () => {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card border-t border-border">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-card border-t border-border pb-safe safe-px">
       <div className="flex items-center justify-around h-16 px-1 gap-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon

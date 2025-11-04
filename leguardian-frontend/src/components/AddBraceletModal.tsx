@@ -57,7 +57,8 @@ const BraceletRegistrationContent = ({
       </Alert>
     )}
 
-    {/* Mode Selection */}
+    {/* Mode Selection - Hide when using camera */}
+    {!(isMobile && useCamera) && (
     <div className="grid grid-cols-2 gap-4">
       {/* QR Mode Card */}
       <button
@@ -105,34 +106,34 @@ const BraceletRegistrationContent = ({
         </div>
       </button>
     </div>
+    )}
 
-    {/* Form */}
-    {!showManualInput ? (
-      /* QR Code Mode */
-      <form onSubmit={handleQRScan} className="space-y-4">
-        {isMobile && useCamera ? (
-          // Camera Scanner on Mobile
-          <>
-            <QRScanner
-              onScan={(code) => {
-                setQrInput(code)
-                setUseCamera(false)
-              }}
-              onClose={() => setUseCamera(false)}
-              isScanning={true}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setUseCamera(false)}
-              className="w-full"
-            >
-              Switch to Manual Input
-            </Button>
-          </>
-        ) : (
-          // Manual QR Input or Fallback
-          <>
+    {/* Camera Mode - Full screen when activated */}
+    {isMobile && useCamera ? (
+      <div className="space-y-4">
+        <QRScanner
+          onScan={(code) => {
+            setQrInput(code)
+            setUseCamera(false)
+          }}
+          onClose={() => setUseCamera(false)}
+          isScanning={true}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setUseCamera(false)}
+          className="w-full"
+        >
+          {t('braceletRegister.back')}
+        </Button>
+      </div>
+    ) : (
+      <>
+        {/* Form - QR or Manual based on mode */}
+        {!showManualInput ? (
+          /* QR Code Mode */
+          <form onSubmit={handleQRScan} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 {t('braceletRegister.scanQR')}
@@ -159,7 +160,7 @@ const BraceletRegistrationContent = ({
                 className="w-full gap-2"
               >
                 <Camera className="w-4 h-4" />
-                Use Camera Scanner
+                {t('braceletRegister.useCamera')}
               </Button>
             )}
 
@@ -180,51 +181,51 @@ const BraceletRegistrationContent = ({
                 </>
               )}
             </Button>
-          </>
+          </form>
+        ) : (
+          /* Manual Input Mode */
+          <form onSubmit={handleManualRegister} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                {t('braceletRegister.code')}
+              </label>
+              <Input
+                type="text"
+                value={uniqueCode}
+                onChange={(e) => setUniqueCode(e.target.value.toUpperCase())}
+                placeholder="ex: BR001ABC"
+                maxLength={20}
+                className="font-mono"
+                disabled={isProcessing}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('braceletRegister.codeFormat')}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t('braceletRegister.codeHint')}
+              </p>
+            </div>
+            <Button
+              type="submit"
+              disabled={isLoading || isProcessing || !uniqueCode.trim()}
+              className="w-full gap-2"
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  {t('braceletRegister.next')}...
+                </>
+              ) : (
+                <>
+                  {t('braceletRegister.next')}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </form>
         )}
-      </form>
-    ) : (
-      /* Manual Input Mode */
-      <form onSubmit={handleManualRegister} className="space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">
-            {t('braceletRegister.code')}
-          </label>
-          <Input
-            type="text"
-            value={uniqueCode}
-            onChange={(e) => setUniqueCode(e.target.value.toUpperCase())}
-            placeholder="ex: BR001ABC"
-            maxLength={20}
-            className="font-mono"
-            disabled={isProcessing}
-            autoFocus
-          />
-          <p className="text-xs text-muted-foreground">
-            {t('braceletRegister.codeFormat')}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t('braceletRegister.codeHint')}
-          </p>
-        </div>
-        <Button
-          type="submit"
-          disabled={isLoading || isProcessing || !uniqueCode.trim()}
-          className="w-full gap-2"
-        >
-          {isProcessing ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              {t('braceletRegister.next')}...
-            </>
-          ) : (
-            <>
-              {t('braceletRegister.next')}
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </Button>
-      </form>
+      </>
     )}
   </div>
 )
@@ -345,7 +346,7 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
               <DrawerTitle>{t('braceletRegister.title')}</DrawerTitle>
               <DrawerDescription>{t('braceletRegister.selectMode')}</DrawerDescription>
             </DrawerHeader>
-            <div className="px-4 pb-4 max-h-[70vh] overflow-y-auto">
+            <div className="px-4 pb-8">
               <BraceletRegistrationContent
                 showManualInput={showManualInput}
                 setShowManualInput={setShowManualInput}

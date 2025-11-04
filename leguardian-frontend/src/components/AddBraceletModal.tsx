@@ -386,7 +386,11 @@ export const AddBraceletModal = ({
 
       {/* Mobile Drawer TEST */}
       {isMobile && (
-        <Drawer open={open} onOpenChange={handleOpenChange}>
+        <Drawer
+          open={open}
+          onOpenChange={handleOpenChange}
+          repositionInputs={false}
+        >
           <DrawerContent className="max-h-none!">
             <DrawerHeader>
               <DrawerTitle>{t("braceletRegister.title")}</DrawerTitle>

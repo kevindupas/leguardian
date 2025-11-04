@@ -6,7 +6,8 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { QrCode, Smartphone, RefreshCw, ArrowRight, AlertCircle } from 'lucide-react'
+import { QrCode, Smartphone, RefreshCw, ArrowRight, AlertCircle, Camera } from 'lucide-react'
+import { QRScanner } from './QRScanner'
 
 interface AddBraceletModalProps {
   open: boolean
@@ -25,7 +26,10 @@ const BraceletRegistrationContent = ({
   error,
   handleQRScan,
   handleManualRegister,
-  t
+  t,
+  isMobile,
+  useCamera,
+  setUseCamera
 }: {
   showManualInput: boolean
   setShowManualInput: (value: boolean) => void
@@ -39,6 +43,9 @@ const BraceletRegistrationContent = ({
   handleQRScan: (e: React.FormEvent) => Promise<void>
   handleManualRegister: (e: React.FormEvent) => Promise<void>
   t: any
+  isMobile: boolean
+  useCamera: boolean
+  setUseCamera: (value: boolean) => void
 }) => (
   <div className="space-y-6">
     {error && (
@@ -102,39 +109,78 @@ const BraceletRegistrationContent = ({
     {!showManualInput ? (
       /* QR Code Mode */
       <form onSubmit={handleQRScan} className="space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">
-            {t('braceletRegister.scanQR')}
-          </label>
-          <Input
-            type="text"
-            value={qrInput}
-            onChange={(e) => setQrInput(e.target.value)}
-            placeholder={t('braceletRegister.codeWillAppear')}
-            autoFocus
-            disabled={isProcessing}
-          />
-          <p className="text-xs text-muted-foreground">
-            {t('braceletRegister.qrCodeLocation')}
-          </p>
-        </div>
-        <Button
-          type="submit"
-          disabled={isLoading || isProcessing || !qrInput.trim()}
-          className="w-full gap-2"
-        >
-          {isProcessing ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              {t('braceletRegister.next')}...
-            </>
-          ) : (
-            <>
-              {t('braceletRegister.next')}
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </Button>
+        {isMobile && useCamera ? (
+          // Camera Scanner on Mobile
+          <>
+            <QRScanner
+              onScan={(code) => {
+                setQrInput(code)
+                setUseCamera(false)
+              }}
+              onClose={() => setUseCamera(false)}
+              isScanning={true}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setUseCamera(false)}
+              className="w-full"
+            >
+              Switch to Manual Input
+            </Button>
+          </>
+        ) : (
+          // Manual QR Input or Fallback
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                {t('braceletRegister.scanQR')}
+              </label>
+              <Input
+                type="text"
+                value={qrInput}
+                onChange={(e) => setQrInput(e.target.value)}
+                placeholder={t('braceletRegister.codeWillAppear')}
+                autoFocus
+                disabled={isProcessing}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('braceletRegister.qrCodeLocation')}
+              </p>
+            </div>
+
+            {/* Camera button for mobile */}
+            {isMobile && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setUseCamera(true)}
+                className="w-full gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                Use Camera Scanner
+              </Button>
+            )}
+
+            <Button
+              type="submit"
+              disabled={isLoading || isProcessing || !qrInput.trim()}
+              className="w-full gap-2"
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  {t('braceletRegister.next')}...
+                </>
+              ) : (
+                <>
+                  {t('braceletRegister.next')}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </>
+        )}
       </form>
     ) : (
       /* Manual Input Mode */
@@ -189,6 +235,7 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
   const [qrInput, setQrInput] = useState('')
   const [uniqueCode, setUniqueCode] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [useCamera, setUseCamera] = useState(false)
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
 
   React.useEffect(() => {
@@ -236,6 +283,7 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
       setShowManualInput(false)
       setQrInput('')
       setUniqueCode('')
+      setUseCamera(false)
       onOpenChange(newOpen)
     }
   }
@@ -266,6 +314,9 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
               handleQRScan={handleQRScan}
               handleManualRegister={handleManualRegister}
               t={t}
+              isMobile={isMobile}
+              useCamera={useCamera}
+              setUseCamera={setUseCamera}
             />
           </div>
         </DialogContent>
@@ -293,6 +344,9 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
                 handleQRScan={handleQRScan}
                 handleManualRegister={handleManualRegister}
                 t={t}
+                isMobile={isMobile}
+                useCamera={useCamera}
+                setUseCamera={setUseCamera}
               />
             </div>
           </DrawerContent>

@@ -6,6 +6,7 @@ export { Header } from './Header'
 export { Sidebar } from './Sidebar'
 export { BottomNav } from './BottomNav'
 export { AddBraceletModal } from './AddBraceletModal'
+export { QRScanner } from './QRScanner'
 export {
   HomeIcon,
   BraceletIcon,

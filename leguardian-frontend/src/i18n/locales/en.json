@@ -122,7 +122,8 @@
     "codeFormat": "Letters and numbers (no spaces)",
     "codeHint": "The bracelet code is found on the product label or packaging. Make sure to scan the QR code correctly.",
     "firmware": "Firmware",
-    "battery": "Battery"
+    "battery": "Battery",
+    "useCamera": "Use Camera"
   },
   "map": {
     "title": "Map",

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useBraceletStore } from '../stores/braceletStore'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -252,9 +253,16 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
     setIsProcessing(true)
     try {
       await registerBracelet(code)
+      toast.success('Bracelet registered successfully!', {
+        description: `Code: ${code}`
+      })
       setQrInput('')
       onOpenChange(false)
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to register bracelet'
+      toast.error('Registration failed', {
+        description: message
+      })
       console.error('Failed to register bracelet:', err)
     } finally {
       setIsProcessing(false)
@@ -269,9 +277,16 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
     setIsProcessing(true)
     try {
       await registerBracelet(code)
+      toast.success('Bracelet registered successfully!', {
+        description: `Code: ${code}`
+      })
       setUniqueCode('')
       onOpenChange(false)
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to register bracelet'
+      toast.error('Registration failed', {
+        description: message
+      })
       console.error('Failed to register bracelet:', err)
     } finally {
       setIsProcessing(false)

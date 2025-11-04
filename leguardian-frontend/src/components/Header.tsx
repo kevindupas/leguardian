@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Menu, Zap, Moon, Sun, LogOut, Bell } from 'lucide-react'
+import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks'
 import { useTheme } from '../contexts/ThemeContext'
@@ -34,8 +35,20 @@ export const Header = ({ onMenuClick, sidebarOpen, onSidebarToggle }: HeaderProp
   }, [])
 
   const toggleLanguage = (lang: string) => {
+    const langLabel = LANGUAGES.find((l) => l.code === lang)?.label
     i18n.changeLanguage(lang)
+    toast.success(`Language changed to ${langLabel}`, {
+      duration: 2000
+    })
     setLanguageDrawerOpen(false)
+  }
+
+  const handleToggleTheme = () => {
+    toggleTheme()
+    const newTheme = theme === 'light' ? 'dark' : 'light'
+    toast.success(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} mode enabled`, {
+      duration: 2000
+    })
   }
 
   return (
@@ -82,7 +95,7 @@ export const Header = ({ onMenuClick, sidebarOpen, onSidebarToggle }: HeaderProp
           <Button
             variant="ghost"
             size="icon"
-            onClick={toggleTheme}
+            onClick={handleToggleTheme}
             title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
           >
             {theme === 'light' ? (

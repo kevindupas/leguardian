@@ -341,12 +341,12 @@ export const AddBraceletModal = ({ open, onOpenChange }: AddBraceletModalProps) 
       {/* Mobile Drawer */}
       {isMobile && (
         <Drawer open={open} onOpenChange={handleOpenChange}>
-          <DrawerContent>
             <DrawerHeader>
               <DrawerTitle>{t('braceletRegister.title')}</DrawerTitle>
               <DrawerDescription>{t('braceletRegister.selectMode')}</DrawerDescription>
             </DrawerHeader>
             <div className="px-4 pb-8">
+=======
               <BraceletRegistrationContent
                 showManualInput={showManualInput}
                 setShowManualInput={setShowManualInput}

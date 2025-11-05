@@ -201,4 +201,99 @@ class BraceletController extends Controller
             'message' => 'Emergency resolved',
         ]);
     }
+
+    /**
+     * Get all events for authenticated user's bracelets
+     */
+    public function getAllEvents(Request $request)
+    {
+        $bracelets = $request->user()->bracelets()->pluck('id');
+
+        $events = BraceletEvent::whereIn('bracelet_id', $bracelets)
+            ->with('bracelet')
+            ->recent()
+            ->paginate(20);
+
+        return response()->json($events);
+    }
+
+    /**
+     * Get unresolved events for authenticated user's bracelets
+     */
+    public function getUnresolvedEvents(Request $request)
+    {
+        $bracelets = $request->user()->bracelets()->pluck('id');
+
+        $events = BraceletEvent::whereIn('bracelet_id', $bracelets)
+            ->unresolved()
+            ->with('bracelet')
+            ->recent()
+            ->get();
+
+        return response()->json([
+            'events' => $events,
+        ]);
+    }
+
+    /**
+     * Resolve an event
+     */
+    public function resolveEvent(Request $request, BraceletEvent $event)
+    {
+        // Check authorization by verifying user owns the bracelet
+        $bracelet = $event->bracelet;
+        if ($bracelet->guardian_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $event->update([
+            'resolved' => true,
+            'resolved_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Event resolved',
+        ]);
+    }
+
+    /**
+     * Send response to event (ping/vibrate)
+     */
+    public function respondToEvent(Request $request, Bracelet $bracelet)
+    {
+        // Check authorization
+        if ($bracelet->guardian_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'event_id' => 'nullable|integer|exists:bracelet_events,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Send vibration command as response
+        $command = BraceletCommand::create([
+            'bracelet_id' => $bracelet->id,
+            'command_type' => 'vibrate_short',
+            'status' => 'pending',
+        ]);
+
+        // Mark event as resolved if provided
+        if ($request->has('event_id') && $request->event_id) {
+            BraceletEvent::find($request->event_id)->update([
+                'resolved' => true,
+                'resolved_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'command_id' => $command->id,
+            'success' => true,
+            'message' => 'Response sent to bracelet',
+        ]);
+    }
 }

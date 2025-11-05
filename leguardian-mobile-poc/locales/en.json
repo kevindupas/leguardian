@@ -94,5 +94,26 @@
     "errorLoading": "Unable to load bracelets",
     "errorUpdate": "Unable to update name",
     "enterName": "Enter bracelet name"
+  },
+  "bracelet": {
+    "edit": "Edit",
+    "showCoordinates": "Show coordinates",
+    "hideCoordinates": "Hide coordinates",
+    "noGeolocation": "No geolocation",
+    "map": "Map",
+    "details": "Details",
+    "updatedAt": "Updated at",
+    "latitude": "Latitude:",
+    "longitude": "Longitude:",
+    "precision": "Precision:",
+    "lastUpdate": "Last update:",
+    "viewOnMap": "View on map",
+    "invalidCode": "Invalid code",
+    "braceletUpdated": "Bracelet updated successfully",
+    "codeRequired": "Please enter a unique code",
+    "nameRequired": "Please enter a bracelet name",
+    "qrRequired": "Please scan or enter a QR code",
+    "cameraPermissionDenied": "Camera permission denied",
+    "cameraAccessRequired": "You must allow camera access to scan QR codes"
   }
 }

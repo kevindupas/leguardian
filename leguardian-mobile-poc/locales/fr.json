@@ -94,5 +94,26 @@
     "errorLoading": "Impossible de charger les bracelets",
     "errorUpdate": "Impossible de mettre à jour le nom",
     "enterName": "Entrez le nom du bracelet"
+  },
+  "bracelet": {
+    "edit": "Éditer",
+    "showCoordinates": "Afficher les coordonnées",
+    "hideCoordinates": "Masquer les coordonnées",
+    "noGeolocation": "Géoloc non présente",
+    "map": "Carte",
+    "details": "Détails",
+    "updatedAt": "Mise à jour :",
+    "latitude": "Latitude :",
+    "longitude": "Longitude :",
+    "precision": "Précision :",
+    "lastUpdate": "Mise à jour :",
+    "viewOnMap": "Voir sur la carte",
+    "invalidCode": "Code invalide",
+    "braceletUpdated": "Bracelet modifié avec succès",
+    "codeRequired": "Veuillez entrer un code unique",
+    "nameRequired": "Veuillez entrer un nom pour le bracelet",
+    "qrRequired": "Veuillez scanner ou entrer un code QR",
+    "cameraPermissionDenied": "Permission caméra refusée",
+    "cameraAccessRequired": "Vous devez autoriser l'accès à la caméra pour scanner les QR codes"
   }
 }

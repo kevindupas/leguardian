@@ -1,0 +1,98 @@
+{
+  "common": {
+    "ok": "OK",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "close": "Fermer",
+    "error": "Erreur",
+    "success": "Succès",
+    "loading": "Chargement..."
+  },
+  "navigation": {
+    "bracelets": "Mes Bracelets",
+    "notifications": "Notifications",
+    "map": "Carte",
+    "profile": "Profil"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "unresolved": "Non résolues",
+    "archives": "Archives",
+    "noUnresolved": "Aucune notification en attente",
+    "noArchives": "Aucune notification archivée",
+    "alertsHere": "Les alertes de vos bracelets apparaîtront ici",
+    "respondedHere": "Vos notifications répondues apparaîtront ici",
+    "viewOnMap": "Voir sur la carte",
+    "respond": "Répondre",
+    "sendSignal": "Envoyer un signal",
+    "pingSent": "Ping envoyé au bracelet"
+  },
+  "map": {
+    "title": "Carte",
+    "unresolved": "Non résolus",
+    "resolved": "Résolus",
+    "pending": "en attente",
+    "resolved_label": "résolus",
+    "event": "événement",
+    "events": "événements",
+    "filterEvents": "Filtrer les événements",
+    "eventType": "Type d'événement",
+    "allTypes": "Tous les types",
+    "bracelets": "Bracelets",
+    "allBracelets": "Tous les bracelets"
+  },
+  "eventDetails": {
+    "location": "Localisation",
+    "battery": "Batterie",
+    "date": "Date & Heure",
+    "noLocation": "Aucune localisation disponible",
+    "precision": "Précision"
+  },
+  "profile": {
+    "title": "Profil",
+    "account": "Compte",
+    "settings": "Paramètres",
+    "theme": "Thème",
+    "language": "Langue",
+    "lightMode": "Clair",
+    "darkMode": "Sombre",
+    "systemMode": "Système",
+    "changePassword": "Changer le mot de passe",
+    "logout": "Se déconnecter",
+    "version": "Version"
+  },
+  "password": {
+    "title": "Changer le mot de passe",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "change": "Changer",
+    "changing": "Changement en cours...",
+    "success": "Mot de passe changé avec succès",
+    "error": "Impossible de changer le mot de passe",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères"
+  },
+  "eventTypes": {
+    "danger": "Danger",
+    "lost": "Perdu",
+    "arrived": "Arrivé"
+  },
+  "home": {
+    "title": "Mes Bracelets",
+    "total": "Total",
+    "active": "Actifs",
+    "battery": "Batterie",
+    "emergencies": "Urgences",
+    "registered": "enregistré",
+    "registered_plural": "enregistrés",
+    "noBracelets": "Aucun bracelet enregistré",
+    "addBraceletPrompt": "Appuyez sur + pour ajouter un bracelet",
+    "bracelet": "bracelet",
+    "bracelets": "bracelets",
+    "errorLoading": "Impossible de charger les bracelets",
+    "errorUpdate": "Impossible de mettre à jour le nom",
+    "enterName": "Entrez le nom du bracelet"
+  }
+}

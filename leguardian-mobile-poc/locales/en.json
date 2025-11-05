@@ -1,0 +1,98 @@
+{
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "close": "Close",
+    "error": "Error",
+    "success": "Success",
+    "loading": "Loading..."
+  },
+  "navigation": {
+    "bracelets": "My Bracelets",
+    "notifications": "Notifications",
+    "map": "Map",
+    "profile": "Profile"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "unresolved": "Unresolved",
+    "archives": "Archives",
+    "noUnresolved": "No pending notifications",
+    "noArchives": "No archived notifications",
+    "alertsHere": "Your bracelet alerts will appear here",
+    "respondedHere": "Your answered notifications will appear here",
+    "viewOnMap": "View on map",
+    "respond": "Respond",
+    "sendSignal": "Send signal",
+    "pingSent": "Signal sent to bracelet"
+  },
+  "map": {
+    "title": "Map",
+    "unresolved": "Unresolved",
+    "resolved": "Resolved",
+    "pending": "pending",
+    "resolved_label": "resolved",
+    "event": "event",
+    "events": "events",
+    "filterEvents": "Filter events",
+    "eventType": "Event type",
+    "allTypes": "All types",
+    "bracelets": "Bracelets",
+    "allBracelets": "All bracelets"
+  },
+  "eventDetails": {
+    "location": "Location",
+    "battery": "Battery",
+    "date": "Date & Time",
+    "noLocation": "No location available",
+    "precision": "Precision"
+  },
+  "profile": {
+    "title": "Profile",
+    "account": "Account",
+    "settings": "Settings",
+    "theme": "Theme",
+    "language": "Language",
+    "lightMode": "Light",
+    "darkMode": "Dark",
+    "systemMode": "System",
+    "changePassword": "Change password",
+    "logout": "Logout",
+    "version": "Version"
+  },
+  "password": {
+    "title": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "change": "Change",
+    "changing": "Changing...",
+    "success": "Password changed successfully",
+    "error": "Unable to change password",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters"
+  },
+  "eventTypes": {
+    "danger": "Danger",
+    "lost": "Lost",
+    "arrived": "Arrived"
+  },
+  "home": {
+    "title": "My Bracelets",
+    "total": "Total",
+    "active": "Active",
+    "battery": "Battery",
+    "emergencies": "Emergencies",
+    "registered": "registered",
+    "registered_plural": "registered",
+    "noBracelets": "No bracelets registered",
+    "addBraceletPrompt": "Tap + to add a bracelet",
+    "bracelet": "bracelet",
+    "bracelets": "bracelets",
+    "errorLoading": "Unable to load bracelets",
+    "errorUpdate": "Unable to update name",
+    "enterName": "Enter bracelet name"
+  }
+}

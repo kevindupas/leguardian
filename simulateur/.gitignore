@@ -1,0 +1,53 @@
+# Electron app files
+electron-app/node_modules/
+electron-app/dist/
+electron-app/out/
+electron-app/.env
+electron-app/.env.local
+
+# Build artifacts
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+*.swo
+*~
+
+# Temporary
+*.tmp
+*.temp
+.tmp/
+
+# Environment
+.env*
+!.env.example
+
+# Dependencies cache
+node_modules/
+package-lock.json
+yarn.lock
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Misc
+.cache/
+.eslintcache

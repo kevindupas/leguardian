@@ -14,6 +14,8 @@ class BraceletCommand extends Model
         'command_type',
         'status',
         'executed_at',
+        'led_color',
+        'led_pattern',
     ];
 
     protected $casts = [

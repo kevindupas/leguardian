@@ -283,10 +283,20 @@ class DeviceController extends Controller
             return response()->json(['command' => null]);
         }
 
-        return response()->json([
+        $response = [
             'command' => $command->command_type,
             'command_id' => $command->id,
-        ]);
+        ];
+
+        // Include LED data if present
+        if ($command->led_color) {
+            $response['led_color'] = $command->led_color;
+        }
+        if ($command->led_pattern) {
+            $response['led_pattern'] = $command->led_pattern;
+        }
+
+        return response()->json($response);
     }
 
     /**

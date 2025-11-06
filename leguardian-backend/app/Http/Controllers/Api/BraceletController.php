@@ -289,7 +289,7 @@ class BraceletController extends Controller
     }
 
     /**
-     * Send response to event (ping/vibrate)
+     * Send response to event (ping/vibrate + LED)
      */
     public function respondToEvent(Request $request, Bracelet $bracelet)
     {
@@ -307,10 +307,19 @@ class BraceletController extends Controller
         }
 
         // Send vibration command as response
-        $command = BraceletCommand::create([
+        $vibrateCommand = BraceletCommand::create([
             'bracelet_id' => $bracelet->id,
             'command_type' => 'vibrate_short',
             'status' => 'pending',
+        ]);
+
+        // Send LED command to indicate parent received the alert
+        $ledCommand = BraceletCommand::create([
+            'bracelet_id' => $bracelet->id,
+            'command_type' => 'led_blink',
+            'status' => 'pending',
+            'led_color' => 'blue',
+            'led_pattern' => 'fast',
         ]);
 
         // Mark event as resolved if provided
@@ -322,9 +331,10 @@ class BraceletController extends Controller
         }
 
         return response()->json([
-            'command_id' => $command->id,
+            'vibrate_command_id' => $vibrateCommand->id,
+            'led_command_id' => $ledCommand->id,
             'success' => true,
-            'message' => 'Response sent to bracelet',
+            'message' => 'Response sent to bracelet (vibration + LED)',
         ]);
     }
 }

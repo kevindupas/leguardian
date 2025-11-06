@@ -388,6 +388,9 @@ class DeviceController extends Controller
 
         // Broadcast update to connected clients
         BraceletUpdated::dispatch($bracelet, $updateData);
+        \Log::info('BraceletUpdated::dispatch called from heartbeat', [
+            'bracelet_id' => $bracelet->id,
+        ]);
 
         return response()->json([
             'success' => true,

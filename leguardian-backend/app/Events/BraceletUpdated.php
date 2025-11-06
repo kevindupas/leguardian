@@ -25,6 +25,10 @@ class BraceletUpdated implements ShouldBroadcast
     {
         $this->bracelet = $bracelet;
         $this->changes = $changes;
+        \Log::info('BraceletUpdated event created', [
+            'bracelet_id' => $bracelet->id,
+            'changes' => $changes,
+        ]);
     }
 
     /**
@@ -34,9 +38,11 @@ class BraceletUpdated implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
-        return [
-            new PrivateChannel('bracelet.' . $this->bracelet->id),
-        ];
+        $channel = new PrivateChannel('bracelet.' . $this->bracelet->id);
+        \Log::info('BraceletUpdated broadcasting on channel', [
+            'channel' => 'bracelet.' . $this->bracelet->id,
+        ]);
+        return [$channel];
     }
 
     /**
@@ -44,7 +50,7 @@ class BraceletUpdated implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
-        return [
+        $data = [
             'bracelet' => [
                 'id' => $this->bracelet->id,
                 'unique_code' => $this->bracelet->unique_code,
@@ -60,6 +66,11 @@ class BraceletUpdated implements ShouldBroadcast
             'changes' => $this->changes,
             'timestamp' => now()->toIso8601String(),
         ];
+        \Log::info('BraceletUpdated broadcasting data', [
+            'event_name' => 'bracelet.updated',
+            'data' => $data,
+        ]);
+        return $data;
     }
 
     /**

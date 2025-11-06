@@ -15,9 +15,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useNavigation } from "expo-router";
 import { braceletService, type Bracelet } from "../../services/braceletService";
 import { AddBraceletBottomSheet } from "../../components/AddBraceletBottomSheet";
-import { useTheme } from '../../contexts/ThemeContext';
-import { useI18n } from '../../contexts/I18nContext';
-import { getColors } from '../../constants/Colors';
+import { useTheme } from "../../contexts/ThemeContext";
+import { useI18n } from "../../contexts/I18nContext";
+import { getColors } from "../../constants/Colors";
 import { BraceletCard } from "../../components/BraceletCard";
 
 export default function HomeScreen() {
@@ -41,11 +41,7 @@ export default function HomeScreen() {
           onPress={() => setBottomSheetVisible(true)}
           style={{ marginRight: 16 }}
         >
-          <Ionicons
-            name="add-circle"
-            size={28}
-            color={colors.white}
-          />
+          <Ionicons name="add-circle" size={28} color={colors.white} />
         </TouchableOpacity>
       ),
     });
@@ -61,8 +57,8 @@ export default function HomeScreen() {
       setBracelets(data);
     } catch (error: any) {
       Alert.alert(
-        t('common.error'),
-        error.response?.data?.message || t('home.errorLoading')
+        t("common.error"),
+        error.response?.data?.message || t("home.errorLoading")
       );
     } finally {
       setLoading(false);
@@ -78,14 +74,16 @@ export default function HomeScreen() {
   const handleSaveAlias = async (braceletId: number) => {
     if (editingAlias.trim()) {
       try {
-        await braceletService.updateBracelet(braceletId, { alias: editingAlias });
+        await braceletService.updateBracelet(braceletId, {
+          alias: editingAlias,
+        });
         fetchBracelets();
         setEditingId(null);
         setEditingAlias("");
       } catch (error: any) {
         Alert.alert(
-          t('common.error'),
-          error.response?.data?.message || t('home.errorUpdate')
+          t("common.error"),
+          error.response?.data?.message || t("home.errorUpdate")
         );
       }
     }
@@ -119,9 +117,9 @@ export default function HomeScreen() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "emergency":
-        return t('home.emergencies');
+        return t("home.emergencies");
       case "active":
-        return t('home.active');
+        return t("home.active");
       default:
         return "Inactif";
     }
@@ -135,22 +133,28 @@ export default function HomeScreen() {
 
   const renderBracelet = ({ item }: { item: Bracelet }) => {
     const isEditing = editingId === item.id;
-    const statusMap: 'safe' | 'warning' | 'danger' =
-      item.status === 'emergency' ? 'danger' :
-      item.status === 'active' ? 'safe' : 'warning';
+    const statusMap: "safe" | "warning" | "danger" =
+      item.status === "emergency"
+        ? "danger"
+        : item.status === "active"
+        ? "safe"
+        : "warning";
 
     if (isEditing) {
       return (
         <View style={[styles.editingCard, { backgroundColor: colors.white }]}>
           <View style={styles.editingHeader}>
             <TextInput
-              style={[styles.aliasEditInput, {
-                color: colors.textPrimary,
-                borderBottomColor: colors.primary
-              }]}
+              style={[
+                styles.aliasEditInput,
+                {
+                  color: colors.textPrimary,
+                  borderBottomColor: colors.primary,
+                },
+              ]}
               value={editingAlias}
               onChangeText={setEditingAlias}
-              placeholder={t('home.enterName')}
+              placeholder={t("home.enterName")}
               maxLength={50}
               autoFocus
               placeholderTextColor={colors.textSecondary}
@@ -158,13 +162,19 @@ export default function HomeScreen() {
           </View>
           <View style={styles.editActions}>
             <TouchableOpacity
-              style={[styles.cancelEditButton, { backgroundColor: colors.mediumBg }]}
+              style={[
+                styles.cancelEditButton,
+                { backgroundColor: colors.mediumBg },
+              ]}
               onPress={handleCancelEdit}
             >
               <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.saveEditButton, { backgroundColor: colors.success }]}
+              style={[
+                styles.saveEditButton,
+                { backgroundColor: colors.success },
+              ]}
               onPress={() => handleSaveAlias(item.id)}
             >
               <Ionicons name="checkmark" size={20} color={colors.white} />
@@ -186,11 +196,13 @@ export default function HomeScreen() {
         lastUpdate={new Date().toISOString()}
         status={statusMap}
         onPress={() => handleViewNotifications(item.id)}
-        onViewOnMap={() => router.push({
-          pathname: "/(tabs)/map-view",
-          params: { braceletId: item.id.toString() }
-        })}
-        onEditLocation={() => console.log('Edit location')}
+        onViewOnMap={() =>
+          router.push({
+            pathname: "/(tabs)/map-view",
+            params: { braceletId: item.id.toString() },
+          })
+        }
+        onEditLocation={() => console.log("Edit location")}
         onBraceletUpdated={fetchBracelets}
       />
     );
@@ -226,53 +238,82 @@ export default function HomeScreen() {
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: colors.white }]}>
-            <View style={[styles.statIcon, { backgroundColor: colors.primary }]}>
+            <View
+              style={[styles.statIcon, { backgroundColor: colors.primary }]}
+            >
               <Ionicons name="watch" size={20} color={colors.white} />
             </View>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{bracelets.length}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('home.total')}</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              {bracelets.length}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              {t("home.total")}
+            </Text>
           </View>
 
           <View style={[styles.statCard, { backgroundColor: colors.white }]}>
-            <View style={[styles.statIcon, { backgroundColor: colors.success }]}>
+            <View
+              style={[styles.statIcon, { backgroundColor: colors.success }]}
+            >
               <Ionicons name="wifi" size={20} color={colors.white} />
             </View>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{activeBracelets}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('home.active')}</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              {activeBracelets}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              {t("home.active")}
+            </Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: colors.white }]}>
+          {/* <View style={[styles.statCard, { backgroundColor: colors.white }]}>
             <View style={[styles.statIcon, { backgroundColor: colors.warning }]}>
               <Ionicons name="battery-half" size={20} color={colors.white} />
             </View>
             <Text style={[styles.statValue, { color: colors.textPrimary }]}>{avgBattery}%</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('home.battery')}</Text>
-          </View>
+          </View> */}
 
           <View style={[styles.statCard, { backgroundColor: colors.white }]}>
             <View style={[styles.statIcon, { backgroundColor: colors.danger }]}>
               <Ionicons name="alert-circle" size={20} color={colors.white} />
             </View>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{emergencyBracelets}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('home.emergencies')}</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+              {emergencyBracelets}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              {t("home.emergencies")}
+            </Text>
           </View>
         </View>
 
         {/* Bracelets List */}
         <View style={styles.listHeader}>
-          <Text style={[styles.listTitle, { color: colors.textPrimary }]}>{t('home.title')}</Text>
+          <Text style={[styles.listTitle, { color: colors.textPrimary }]}>
+            {t("home.title")}
+          </Text>
           <Text style={[styles.listSubtitle, { color: colors.textSecondary }]}>
-            {bracelets.length} {bracelets.length > 1 ? t('home.bracelets') : t('home.bracelet')}{" "}
-            {bracelets.length > 1 ? t('home.registered_plural') : t('home.registered')}
+            {bracelets.length}{" "}
+            {bracelets.length > 1 ? t("home.bracelets") : t("home.bracelet")}{" "}
+            {bracelets.length > 1
+              ? t("home.registered_plural")
+              : t("home.registered")}
           </Text>
         </View>
 
         {bracelets.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="watch-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('home.noBracelets')}</Text>
-            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-              {t('home.addBraceletPrompt')}
+            <Ionicons
+              name="watch-outline"
+              size={64}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {t("home.noBracelets")}
+            </Text>
+            <Text
+              style={[styles.emptySubtext, { color: colors.textSecondary }]}
+            >
+              {t("home.addBraceletPrompt")}
             </Text>
           </View>
         ) : (

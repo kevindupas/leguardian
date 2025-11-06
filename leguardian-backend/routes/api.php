@@ -31,6 +31,7 @@ Route::prefix('mobile')->middleware('auth:sanctum')->group(function () {
     Route::post('bracelets/register', [BraceletController::class, 'register']);
     Route::get('bracelets/{bracelet}', [BraceletController::class, 'show']);
     Route::put('bracelets/{bracelet}', [BraceletController::class, 'update']);
+    Route::delete('bracelets/{bracelet}', [BraceletController::class, 'destroy']);
     Route::post('bracelets/{bracelet}/vibrate', [BraceletController::class, 'vibrate']);
     Route::post('bracelets/{bracelet}/resolve-emergency', [BraceletController::class, 'resolveEmergency']);
     Route::get('bracelets/{bracelet}/events', [BraceletController::class, 'getEvents']);
@@ -64,6 +65,9 @@ Route::prefix('devices')->group(function () {
 
     // Heartbeat
     Route::post('heartbeat', [DeviceController::class, 'heartbeat']);
+
+    // Reset status
+    Route::post('reset-status', [DeviceController::class, 'resetStatus']);
 });
 
 // Health check

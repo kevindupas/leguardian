@@ -337,4 +337,31 @@ class BraceletController extends Controller
             'message' => 'Response sent to bracelet (vibration + LED)',
         ]);
     }
+
+    /**
+     * Delete a bracelet (unpair from guardian)
+     * DELETE /api/mobile/bracelets/{id}
+     */
+    public function destroy(Request $request, Bracelet $bracelet)
+    {
+        // Check authorization
+        if ($bracelet->guardian_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $braceletName = $bracelet->alias ?? $bracelet->unique_code;
+
+        // Soft delete or unpair the bracelet
+        $bracelet->update([
+            'guardian_id' => null,
+            'is_paired' => false,
+            'paired_at' => null,
+            'status' => 'inactive',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Bracelet '{$braceletName}' has been removed from your account",
+        ]);
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\BraceletUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Bracelet;
 use App\Models\BraceletEvent;
@@ -112,6 +113,9 @@ class DeviceController extends Controller
 
         $bracelet->update($updateData);
 
+        // Broadcast update to connected clients
+        BraceletUpdated::dispatch($bracelet, $updateData);
+
         return response()->json(['success' => true]);
     }
 
@@ -159,6 +163,9 @@ class DeviceController extends Controller
         ];
 
         $bracelet->update($updateData);
+
+        // Broadcast update to connected clients
+        BraceletUpdated::dispatch($bracelet, $updateData);
 
         return response()->json([
             'success' => true,
@@ -211,6 +218,9 @@ class DeviceController extends Controller
 
         $bracelet->update($updateData);
 
+        // Broadcast update to connected clients
+        BraceletUpdated::dispatch($bracelet, $updateData);
+
         return response()->json([
             'success' => true,
             'emergency_mode' => true,
@@ -249,13 +259,17 @@ class DeviceController extends Controller
         ]);
 
         // Update last location and ping
-        $bracelet->update([
+        $updateData = [
             'last_ping_at' => now(),
             'last_latitude' => $request->latitude,
             'last_longitude' => $request->longitude,
             'last_accuracy' => $request->accuracy ?? null,
             'last_location_update' => now(),
-        ]);
+        ];
+        $bracelet->update($updateData);
+
+        // Broadcast update to connected clients
+        BraceletUpdated::dispatch($bracelet, $updateData);
 
         return response()->json([
             'success' => true,
@@ -372,9 +386,48 @@ class DeviceController extends Controller
             'location_updated' => isset($updateData['last_latitude']),
         ]);
 
+        // Broadcast update to connected clients
+        BraceletUpdated::dispatch($bracelet, $updateData);
+
         return response()->json([
             'success' => true,
             'next_ping' => 120, // 2 minutes - periodic location transmission
+        ]);
+    }
+
+    /**
+     * Reset bracelet status to active
+     * POST /api/devices/reset-status
+     */
+    public function resetStatus(Request $request)
+    {
+        $bracelet = $this->getBraceletFromRequest($request);
+        if (!$bracelet) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        // Only allow reset if currently in lost or emergency status
+        if (!in_array($bracelet->status, ['lost', 'emergency'])) {
+            return response()->json([
+                'message' => 'Bracelet can only be reset from lost or emergency status',
+                'current_status' => $bracelet->status,
+            ], 422);
+        }
+
+        $updateData = [
+            'status' => 'active',
+            'last_ping_at' => now(),
+        ];
+
+        $bracelet->update($updateData);
+
+        // Broadcast update to connected clients
+        BraceletUpdated::dispatch($bracelet, $updateData);
+
+        return response()->json([
+            'success' => true,
+            'status' => $bracelet->status,
+            'message' => 'Bracelet status reset to active',
         ]);
     }
 

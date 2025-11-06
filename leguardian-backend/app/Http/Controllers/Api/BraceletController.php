@@ -12,13 +12,28 @@ use Illuminate\Support\Facades\Validator;
 class BraceletController extends Controller
 {
     /**
-     * Get all bracelets for authenticated user
+     * Get all bracelets for authenticated user with last location
      */
     public function index(Request $request)
     {
         $bracelets = $request->user()->bracelets()
             ->with('events')
-            ->get();
+            ->get()
+            ->map(function ($bracelet) {
+                $data = $bracelet->toArray();
+
+                // Add last location if available
+                if ($bracelet->last_latitude && $bracelet->last_longitude) {
+                    $data['last_location'] = [
+                        'latitude' => (float) $bracelet->last_latitude,
+                        'longitude' => (float) $bracelet->last_longitude,
+                        'accuracy' => (int) $bracelet->last_accuracy,
+                        'updated_at' => $bracelet->last_location_update,
+                    ];
+                }
+
+                return $data;
+            });
 
         return response()->json([
             'bracelets' => $bracelets,
@@ -26,7 +41,7 @@ class BraceletController extends Controller
     }
 
     /**
-     * Get single bracelet
+     * Get single bracelet with last location
      */
     public function show(Request $request, Bracelet $bracelet)
     {
@@ -35,9 +50,25 @@ class BraceletController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return response()->json([
-            'bracelet' => $bracelet->load('events', 'commands'),
-        ]);
+        // Load relationships
+        $bracelet->load('events', 'commands');
+
+        // Create response with last location
+        $response = [
+            'bracelet' => $bracelet,
+        ];
+
+        // Add last location if available
+        if ($bracelet->last_latitude && $bracelet->last_longitude) {
+            $response['last_location'] = [
+                'latitude' => (float) $bracelet->last_latitude,
+                'longitude' => (float) $bracelet->last_longitude,
+                'accuracy' => (int) $bracelet->last_accuracy,
+                'updated_at' => $bracelet->last_location_update,
+            ];
+        }
+
+        return response()->json($response);
     }
 
     /**

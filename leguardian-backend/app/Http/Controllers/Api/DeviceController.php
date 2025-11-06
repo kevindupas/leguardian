@@ -97,10 +97,20 @@ class DeviceController extends Controller
         ]);
 
         // Update bracelet
-        $bracelet->update([
+        $updateData = [
             'battery_level' => $request->battery_level,
             'last_ping_at' => now(),
-        ]);
+        ];
+
+        // Store last location if provided
+        if ($request->has('latitude') && $request->latitude) {
+            $updateData['last_latitude'] = $request->latitude;
+            $updateData['last_longitude'] = $request->longitude;
+            $updateData['last_accuracy'] = $request->accuracy ?? null;
+            $updateData['last_location_update'] = now();
+        }
+
+        $bracelet->update($updateData);
 
         return response()->json(['success' => true]);
     }
@@ -138,11 +148,17 @@ class DeviceController extends Controller
         ]);
 
         // Update bracelet to 'lost' status
-        $bracelet->update([
+        $updateData = [
             'status' => 'lost',
             'battery_level' => $request->battery_level,
             'last_ping_at' => now(),
-        ]);
+            'last_latitude' => $request->latitude,
+            'last_longitude' => $request->longitude,
+            'last_accuracy' => $request->accuracy ?? null,
+            'last_location_update' => now(),
+        ];
+
+        $bracelet->update($updateData);
 
         return response()->json([
             'success' => true,
@@ -183,11 +199,17 @@ class DeviceController extends Controller
         ]);
 
         // Update bracelet to 'emergency' status
-        $bracelet->update([
+        $updateData = [
             'status' => 'emergency',
             'battery_level' => $request->battery_level,
             'last_ping_at' => now(),
-        ]);
+            'last_latitude' => $request->latitude,
+            'last_longitude' => $request->longitude,
+            'last_accuracy' => $request->accuracy ?? null,
+            'last_location_update' => now(),
+        ];
+
+        $bracelet->update($updateData);
 
         return response()->json([
             'success' => true,
@@ -226,7 +248,14 @@ class DeviceController extends Controller
             'battery_level' => $bracelet->battery_level,
         ]);
 
-        $bracelet->update(['last_ping_at' => now()]);
+        // Update last location and ping
+        $bracelet->update([
+            'last_ping_at' => now(),
+            'last_latitude' => $request->latitude,
+            'last_longitude' => $request->longitude,
+            'last_accuracy' => $request->accuracy ?? null,
+            'last_location_update' => now(),
+        ]);
 
         return response()->json([
             'success' => true,
@@ -308,14 +337,25 @@ class DeviceController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $bracelet->update([
+        // Update heartbeat data
+        $updateData = [
             'battery_level' => $request->battery_level,
             'last_ping_at' => now(),
-        ]);
+        ];
+
+        // Store last location if provided
+        if ($request->has('latitude') && $request->latitude) {
+            $updateData['last_latitude'] = $request->latitude;
+            $updateData['last_longitude'] = $request->longitude;
+            $updateData['last_accuracy'] = $request->accuracy ?? null;
+            $updateData['last_location_update'] = now();
+        }
+
+        $bracelet->update($updateData);
 
         return response()->json([
             'success' => true,
-            'next_ping' => 300, // 5 minutes
+            'next_ping' => 120, // 2 minutes - periodic location transmission
         ]);
     }
 

@@ -1,2 +1,6 @@
 /electron-app/node_modules
 node_modules/
+/simulateur
+/qrcodes
+/electron-app
+/leguardian-mobile-poc

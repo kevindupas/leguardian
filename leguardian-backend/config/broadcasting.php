@@ -19,7 +19,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Broadcast Connections 
+    | Broadcast Connections
     |--------------------------------------------------------------------------
     |
     | Here you may define all of the broadcast connections that will be used

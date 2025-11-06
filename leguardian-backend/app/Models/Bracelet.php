@@ -20,6 +20,10 @@ class Bracelet extends Model
         'firmware_version',
         'paired_at',
         'is_paired',
+        'last_latitude',
+        'last_longitude',
+        'last_accuracy',
+        'last_location_update',
     ];
 
     protected $casts = [
@@ -27,6 +31,10 @@ class Bracelet extends Model
         'last_ping_at' => 'datetime',
         'paired_at' => 'datetime',
         'is_paired' => 'boolean',
+        'last_latitude' => 'float',
+        'last_longitude' => 'float',
+        'last_accuracy' => 'integer',
+        'last_location_update' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

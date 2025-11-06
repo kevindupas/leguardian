@@ -334,6 +334,10 @@ class DeviceController extends Controller
     {
         $bracelet = $this->getBraceletFromRequest($request);
         if (!$bracelet) {
+            \Log::error('Heartbeat - Bracelet not found', [
+                'header_x_bracelet_id' => $request->header('X-Bracelet-ID'),
+                'all_headers' => $request->headers->all(),
+            ]);
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
@@ -362,6 +366,11 @@ class DeviceController extends Controller
         }
 
         $bracelet->update($updateData);
+        \Log::info('Heartbeat updated', [
+            'bracelet_id' => $bracelet->id,
+            'battery' => $updateData['battery_level'],
+            'location_updated' => isset($updateData['last_latitude']),
+        ]);
 
         return response()->json([
             'success' => true,

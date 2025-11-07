@@ -306,21 +306,17 @@ class BraceletController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Send vibration command as response
+        // Send vibration command as response with LED indication
         $vibrateCommand = BraceletCommand::create([
             'bracelet_id' => $bracelet->id,
             'command_type' => 'vibrate_short',
             'status' => 'pending',
-        ]);
-
-        // Send LED command to indicate parent received the alert
-        $ledCommand = BraceletCommand::create([
-            'bracelet_id' => $bracelet->id,
-            'command_type' => 'led_blink',
-            'status' => 'pending',
             'led_color' => 'blue',
             'led_pattern' => 'fast',
         ]);
+
+        // LED indication is included in the vibrate command
+        $ledCommand = $vibrateCommand;
 
         // Mark event as resolved if provided
         if ($request->has('event_id') && $request->event_id) {

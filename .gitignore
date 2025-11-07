@@ -3,4 +3,5 @@ node_modules/
 /simulateur
 /qrcodes
 /electron-app
-/leguardian-mobile-poc
+/bracelet
+bracelet/

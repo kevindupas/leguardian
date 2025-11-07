@@ -97,6 +97,7 @@
   },
   "bracelet": {
     "edit": "Edit",
+    "delete": "Delete",
     "showCoordinates": "Show coordinates",
     "hideCoordinates": "Hide coordinates",
     "noGeolocation": "No geolocation",
@@ -110,6 +111,9 @@
     "viewOnMap": "View on map",
     "invalidCode": "Invalid code",
     "braceletUpdated": "Bracelet updated successfully",
+    "braceletDeleted": "Bracelet deleted successfully",
+    "deleteConfirmTitle": "Delete bracelet?",
+    "deleteConfirmMessage": "Are you sure you want to delete this bracelet? This action cannot be undone.",
     "codeRequired": "Please enter a unique code",
     "nameRequired": "Please enter a bracelet name",
     "qrRequired": "Please scan or enter a QR code",

@@ -97,6 +97,7 @@
   },
   "bracelet": {
     "edit": "Éditer",
+    "delete": "Supprimer",
     "showCoordinates": "Afficher les coordonnées",
     "hideCoordinates": "Masquer les coordonnées",
     "noGeolocation": "Géoloc non présente",
@@ -110,6 +111,9 @@
     "viewOnMap": "Voir sur la carte",
     "invalidCode": "Code invalide",
     "braceletUpdated": "Bracelet modifié avec succès",
+    "braceletDeleted": "Bracelet supprimé avec succès",
+    "deleteConfirmTitle": "Supprimer le bracelet ?",
+    "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer ce bracelet ? Cette action est irréversible.",
     "codeRequired": "Veuillez entrer un code unique",
     "nameRequired": "Veuillez entrer un nom pour le bracelet",
     "qrRequired": "Veuillez scanner ou entrer un code QR",

@@ -20,6 +20,7 @@ interface BraceletCardProps {
   onViewOnMap?: () => void;
   onEditLocation?: () => void;
   onBraceletUpdated?: () => void;
+  onDelete?: () => void;
   status: "safe" | "warning" | "danger";
 }
 
@@ -36,6 +37,7 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
   onViewOnMap,
   onEditLocation,
   onBraceletUpdated,
+  onDelete,
   status,
 }) => {
   const { isDark } = useTheme();
@@ -192,6 +194,21 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
               <Text style={[styles.locationButtonText, { color: colors.primary }]}>{t('bracelet.details')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Delete Button */}
+          {onDelete && (
+            <TouchableOpacity
+              style={[styles.deleteButton, { backgroundColor: colors.danger + '15', borderColor: colors.danger }]}
+              onPress={onDelete}
+            >
+              <Ionicons
+                name="trash"
+                size={16}
+                color={colors.danger}
+              />
+              <Text style={[styles.deleteButtonText, { color: colors.danger }]}>{t('bracelet.delete')}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Show More Location Details Button - Only if location data exists */}
           {latitude && longitude && (
@@ -357,4 +374,19 @@ const styles = StyleSheet.create({
   },
   locationButtonTextDisabled: {},
   coordinatesDisabled: {},
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginTop: 8,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

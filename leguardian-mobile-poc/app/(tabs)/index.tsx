@@ -17,6 +17,7 @@ import { braceletService, type Bracelet } from "../../services/braceletService";
 import { AddBraceletBottomSheet } from "../../components/AddBraceletBottomSheet";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useI18n } from "../../contexts/I18nContext";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 import { getColors } from "../../constants/Colors";
 import { BraceletCard } from "../../components/BraceletCard";
 
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const { t } = useI18n();
+  const { isConnected, subscribeToBracelet, unsubscribeFromBracelet } = useWebSocket();
   const colors = getColors(isDark);
   const [bracelets, setBracelets] = useState<Bracelet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,40 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchBracelets();
   }, []);
+
+  // Subscribe to WebSocket updates for all bracelets
+  useEffect(() => {
+    if (bracelets.length === 0 || !isConnected) return;
+
+    // Subscribe to each bracelet's updates
+    bracelets.forEach((bracelet) => {
+      subscribeToBracelet(bracelet.id, (update) => {
+        // Update the bracelet data in the state
+        setBracelets((prevBracelets) =>
+          prevBracelets.map((b) =>
+            b.id === update.bracelet.id
+              ? {
+                  ...b,
+                  status: update.bracelet.status as any,
+                  battery_level: update.bracelet.battery_level,
+                  last_latitude: update.bracelet.last_latitude,
+                  last_longitude: update.bracelet.last_longitude,
+                  last_accuracy: update.bracelet.last_accuracy,
+                  updated_at: new Date().toISOString(),
+                }
+              : b
+          )
+        );
+      });
+    });
+
+    // Cleanup: unsubscribe from bracelets when component unmounts or bracelets change
+    return () => {
+      bracelets.forEach((bracelet) => {
+        unsubscribeFromBracelet(bracelet.id);
+      });
+    };
+  }, [bracelets, isConnected, subscribeToBracelet, unsubscribeFromBracelet]);
 
   const fetchBracelets = async () => {
     try {
@@ -92,6 +128,36 @@ export default function HomeScreen() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingAlias("");
+  };
+
+  const handleDeleteBracelet = (braceletId: number, braceletName: string) => {
+    Alert.alert(
+      t("bracelet.deleteConfirmTitle"),
+      t("bracelet.deleteConfirmMessage"),
+      [
+        {
+          text: t("common.cancel"),
+          onPress: () => {},
+          style: "cancel",
+        },
+        {
+          text: t("common.delete"),
+          onPress: async () => {
+            try {
+              await braceletService.deleteBracelet(braceletId);
+              Alert.alert(t("common.success"), t("bracelet.braceletDeleted"));
+              fetchBracelets();
+            } catch (error: any) {
+              Alert.alert(
+                t("common.error"),
+                error.response?.data?.message || t("common.error")
+              );
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
   };
 
   const handleViewNotifications = (braceletId: number) => {
@@ -204,6 +270,7 @@ export default function HomeScreen() {
         }
         onEditLocation={() => console.log("Edit location")}
         onBraceletUpdated={fetchBracelets}
+        onDelete={() => handleDeleteBracelet(item.id, item.alias || item.unique_code)}
       />
     );
   };

@@ -17,8 +17,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useLocalSearchParams } from "expo-router";
 import MapView, { Marker } from "react-native-maps";
 import { eventService, type BraceletEvent } from "../../services/eventService";
+import { braceletService, type Bracelet } from "../../services/braceletService";
 import { useTheme } from '../../contexts/ThemeContext';
 import { useI18n } from '../../contexts/I18nContext';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 import { getColors } from '../../constants/Colors';
 import { EventTimeline, type EventTimelineItem } from "../../components/EventTimeline";
 
@@ -27,10 +29,12 @@ export default function MapViewScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const { t } = useI18n();
+  const { isConnected, subscribeToBracelet, unsubscribeFromBracelet } = useWebSocket();
   const colors = getColors(isDark);
   const params = useLocalSearchParams();
   const mapViewRef = useRef<MapView>(null);
   const [events, setEvents] = useState<BraceletEvent[]>([]);
+  const [bracelets, setBracelets] = useState<Bracelet[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<BraceletEvent | null>(
@@ -65,9 +69,54 @@ export default function MapViewScreen() {
     });
   }, [navigation]);
 
+  // Load bracelets on mount
+  useEffect(() => {
+    loadBracelets();
+  }, []);
+
+  // Subscribe to WebSocket updates for all bracelets
+  useEffect(() => {
+    if (bracelets.length === 0 || !isConnected) return;
+
+    bracelets.forEach((bracelet) => {
+      subscribeToBracelet(bracelet.id, (update) => {
+        // Update bracelet location on map in real-time
+        setBracelets((prevBracelets) =>
+          prevBracelets.map((b) =>
+            b.id === update.bracelet.id
+              ? {
+                  ...b,
+                  last_latitude: update.bracelet.last_latitude,
+                  last_longitude: update.bracelet.last_longitude,
+                  last_accuracy: update.bracelet.last_accuracy,
+                  status: update.bracelet.status as any,
+                  battery_level: update.bracelet.battery_level,
+                }
+              : b
+          )
+        );
+      });
+    });
+
+    return () => {
+      bracelets.forEach((bracelet) => {
+        unsubscribeFromBracelet(bracelet.id);
+      });
+    };
+  }, [bracelets, isConnected, subscribeToBracelet, unsubscribeFromBracelet]);
+
   useEffect(() => {
     fetchUnresolvedEvents();
   }, [filterType, selectedBraceletId]);
+
+  const loadBracelets = async () => {
+    try {
+      const data = await braceletService.getBracelets();
+      setBracelets(data);
+    } catch (error) {
+      console.error('Failed to load bracelets:', error);
+    }
+  };
 
   const fetchUnresolvedEvents = async () => {
     try {

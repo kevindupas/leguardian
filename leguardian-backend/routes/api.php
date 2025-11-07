@@ -13,9 +13,6 @@ use App\Http\Controllers\Api\DeviceController;
 |--------------------------------------------------------------------------
 */
 
-// Broadcasting auth route for mobile clients (requires Bearer token)
-Broadcast::routes(['middleware' => ['auth:sanctum']]);
-
 // Public Auth Routes
 Route::prefix('mobile/auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
@@ -78,3 +75,7 @@ Route::prefix('devices')->group(function () {
 Route::get('health', function () {
     return response()->json(['status' => 'ok']);
 });
+
+// Broadcasting auth route for mobile clients (requires Bearer token)
+// This MUST be after other route definitions to be properly registered
+Broadcast::routes(['middleware' => ['auth:sanctum']]);

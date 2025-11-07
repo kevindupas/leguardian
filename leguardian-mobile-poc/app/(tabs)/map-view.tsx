@@ -356,19 +356,28 @@ export default function MapViewScreen() {
         })}
 
         {/* Light blue markers for heartbeat trail (last 30 positions) */}
-        {heartbeatEvents.map((heartbeat, index) => (
-          <Marker
-            key={`heartbeat-${heartbeat.id}`}
-            coordinate={{
-              latitude: parseFloat(heartbeat.latitude as any),
-              longitude: parseFloat(heartbeat.longitude as any),
-            }}
-            title={`${t('map.trackedBracelet')} (${index + 1}/${heartbeatEvents.length})`}
-            description={`${new Date(heartbeat.created_at).toLocaleString('fr-FR')}`}
-            pinColor="#87CEEB" // Light blue for heartbeat trail
-            opacity={0.5 + (index / heartbeatEvents.length) * 0.5} // Fade from light to more opaque
-          />
-        ))}
+        {heartbeatEvents
+          .filter((heartbeat) => {
+            // Don't show heartbeat marker if there's an event at the same location
+            return !displayedEvents.some(
+              (event) =>
+                Math.abs(parseFloat(event.latitude as any) - parseFloat(heartbeat.latitude as any)) < 0.0001 &&
+                Math.abs(parseFloat(event.longitude as any) - parseFloat(heartbeat.longitude as any)) < 0.0001
+            );
+          })
+          .map((heartbeat, index) => (
+            <Marker
+              key={`heartbeat-${heartbeat.id}`}
+              coordinate={{
+                latitude: parseFloat(heartbeat.latitude as any),
+                longitude: parseFloat(heartbeat.longitude as any),
+              }}
+              title={`${t('map.trackedBracelet')} (${index + 1}/${heartbeatEvents.length})`}
+              description={`${new Date(heartbeat.created_at).toLocaleString('fr-FR')}`}
+              pinColor="#87CEEB" // Light blue for heartbeat trail
+              opacity={0.5 + (index / heartbeatEvents.length) * 0.5} // Fade from light to more opaque
+            />
+          ))}
 
         {/* Colored markers for events (danger, lost, arrived) */}
         {displayedEvents.map((event) => (

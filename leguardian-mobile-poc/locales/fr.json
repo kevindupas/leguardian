@@ -40,7 +40,8 @@
     "eventType": "Type d'événement",
     "allTypes": "Tous les types",
     "bracelets": "Bracelets",
-    "allBracelets": "Tous les bracelets"
+    "allBracelets": "Tous les bracelets",
+    "trackedBracelet": "Suivi en direct"
   },
   "eventDetails": {
     "location": "Localisation",

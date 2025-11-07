@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Bracelet;
 use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
+use App\Models\BraceletLocationHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -334,6 +335,44 @@ class BraceletController extends Controller
             'led_command_id' => $ledCommand->id,
             'success' => true,
             'message' => 'Response sent to bracelet (vibration + LED)',
+        ]);
+    }
+
+    /**
+     * Get location history for a bracelet (last 30 positions)
+     * GET /api/mobile/bracelets/{id}/location-history
+     */
+    public function getLocationHistory(Request $request, Bracelet $bracelet)
+    {
+        // Check authorization
+        if ($bracelet->guardian_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Get last 30 location history entries
+        $locationHistory = BraceletLocationHistory::where('bracelet_id', $bracelet->id)
+            ->latest('recorded_at')
+            ->limit(30)
+            ->get()
+            ->reverse() // Reverse to show chronological order (oldest to newest)
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'bracelet_id' => $bracelet->id,
+            'locations' => $locationHistory->map(function ($history) {
+                return [
+                    'id' => $history->id,
+                    'latitude' => $history->location_data['latitude'] ?? null,
+                    'longitude' => $history->location_data['longitude'] ?? null,
+                    'accuracy' => $history->location_data['accuracy'] ?? null,
+                    'battery_level' => $history->location_data['battery_level'] ?? null,
+                    'source_type' => $history->source_type,
+                    'recorded_at' => $history->recorded_at,
+                    'created_at' => $history->created_at,
+                ];
+            }),
+            'total_locations' => $locationHistory->count(),
         ]);
     }
 

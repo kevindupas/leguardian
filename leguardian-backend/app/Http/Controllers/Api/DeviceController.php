@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Bracelet;
 use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
-use App\Models\BraceletLocationHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -114,20 +113,6 @@ class DeviceController extends Controller
 
         $bracelet->update($updateData);
 
-        // Store location history if location is provided
-        if ($request->has('latitude') && $request->latitude) {
-            BraceletLocationHistory::create([
-                'bracelet_id' => $bracelet->id,
-                'location_data' => [
-                    'latitude' => $request->latitude,
-                    'longitude' => $request->longitude,
-                    'accuracy' => $request->accuracy ?? null,
-                    'battery_level' => $request->battery_level,
-                ],
-                'source_type' => 'arrived',
-                'recorded_at' => now(),
-            ]);
-        }
 
         // Broadcast update to connected clients
         BraceletUpdated::dispatch($bracelet, $updateData);
@@ -179,19 +164,6 @@ class DeviceController extends Controller
         ];
 
         $bracelet->update($updateData);
-
-        // Store location history
-        BraceletLocationHistory::create([
-            'bracelet_id' => $bracelet->id,
-            'location_data' => [
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'accuracy' => $request->accuracy ?? null,
-                'battery_level' => $request->battery_level,
-            ],
-            'source_type' => 'lost',
-            'recorded_at' => now(),
-        ]);
 
         // Broadcast update to connected clients
         BraceletUpdated::dispatch($bracelet, $updateData);
@@ -247,19 +219,6 @@ class DeviceController extends Controller
 
         $bracelet->update($updateData);
 
-        // Store location history
-        BraceletLocationHistory::create([
-            'bracelet_id' => $bracelet->id,
-            'location_data' => [
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'accuracy' => $request->accuracy ?? null,
-                'battery_level' => $request->battery_level,
-            ],
-            'source_type' => 'danger',
-            'recorded_at' => now(),
-        ]);
-
         // Broadcast update to connected clients
         BraceletUpdated::dispatch($bracelet, $updateData);
 
@@ -309,19 +268,6 @@ class DeviceController extends Controller
             'last_location_update' => now(),
         ];
         $bracelet->update($updateData);
-
-        // Store location history
-        BraceletLocationHistory::create([
-            'bracelet_id' => $bracelet->id,
-            'location_data' => [
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'accuracy' => $request->accuracy ?? null,
-                'battery_level' => $bracelet->battery_level,
-            ],
-            'source_type' => 'danger_update',
-            'recorded_at' => now(),
-        ]);
 
         // Broadcast update to connected clients
         BraceletUpdated::dispatch($bracelet, $updateData);
@@ -435,21 +381,6 @@ class DeviceController extends Controller
         }
 
         $bracelet->update($updateData);
-
-        // Store location history if location is provided
-        if ($request->has('latitude') && $request->latitude) {
-            BraceletLocationHistory::create([
-                'bracelet_id' => $bracelet->id,
-                'location_data' => [
-                    'latitude' => $request->latitude,
-                    'longitude' => $request->longitude,
-                    'accuracy' => $request->accuracy ?? null,
-                    'battery_level' => $request->battery_level,
-                ],
-                'source_type' => 'heartbeat',
-                'recorded_at' => now(),
-            ]);
-        }
 
         \Log::info('Heartbeat updated', [
             'bracelet_id' => $bracelet->id,

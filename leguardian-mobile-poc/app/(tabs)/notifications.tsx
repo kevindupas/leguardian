@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { eventService, type BraceletEvent } from '../../services/eventService';
+import { braceletService, type Bracelet } from '../../services/braceletService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { getColors } from '../../constants/Colors';
@@ -59,8 +60,52 @@ export default function NotificationsScreen() {
     }
   }, [params.braceletId]);
 
+  // Fetch events initially and when filters change
   useEffect(() => {
     fetchEvents();
+  }, [filterType, selectedBraceletId]);
+
+  // Poll for event updates every 5 seconds
+  useEffect(() => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const data = await eventService.getAllEvents();
+        let filteredEvents = data.data || [];
+
+        // Extract unique bracelets from events
+        const uniqueBracelets = Array.from(
+          new Map(
+            filteredEvents
+              .filter((e) => e.bracelet)
+              .map((e) => [
+                e.bracelet_id,
+                {
+                  id: e.bracelet_id,
+                  alias: e.bracelet?.alias || e.bracelet?.unique_code || 'Bracelet',
+                  unique_code: e.bracelet?.unique_code || '',
+                },
+              ])
+          ).values()
+        );
+        setAllBracelets(uniqueBracelets);
+
+        // Apply filters
+        if (filterType !== 'all') {
+          filteredEvents = filteredEvents.filter((e) => e.event_type === filterType);
+        }
+
+        if (selectedBraceletId !== null) {
+          filteredEvents = filteredEvents.filter((e) => e.bracelet_id === selectedBraceletId);
+        }
+
+        setEvents(filteredEvents);
+      } catch (error) {
+        // Silently fail on polling errors
+        console.log('[NotificationsScreen] Polling error:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
   }, [filterType, selectedBraceletId]);
 
   const fetchEvents = async () => {
@@ -115,21 +160,30 @@ export default function NotificationsScreen() {
     setRespondingId(event.id);
     try {
       await eventService.sendResponse(event.bracelet_id, event.id);
-      // Show success alert and switch to archives tab
+
+      // Get bracelet name
+      const braceletName = event.bracelet?.alias || event.bracelet?.unique_code || 'Bracelet';
+
+      // Show success toast notification
       Alert.alert(
         t('common.success'),
-        `${t('notifications.pingSent')} ${event.bracelet?.alias || event.bracelet?.unique_code || 'Bracelet'}`,
+        `${t('notifications.pingSent')} ${braceletName}`,
         [{ text: t('common.ok'), onPress: () => {
-          setActiveTab('archives');
+          // Refresh events data but stay in pending tab
           fetchEvents();
         }}]
       );
+
+      // Log response action to console (visible in debugger/logs)
+      console.log(`✅ Response sent to bracelet: ${braceletName} (Event #${event.id})`);
+
     } catch (error: any) {
       Alert.alert(
         t('common.error'),
         error.response?.data?.message || t('common.error'),
         [{ text: t('common.ok') }]
       );
+      console.error(`❌ Failed to respond to event #${event.id}:`, error);
     } finally {
       setRespondingId(null);
     }
@@ -259,20 +313,22 @@ export default function NotificationsScreen() {
             <Text style={[styles.mapButtonText, { color: colors.primary }]}>{t('notifications.viewOnMap')}</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity
-          style={[styles.respondButton, { backgroundColor: colors.success }, respondingId === item.id && styles.respondButtonLoading]}
-          onPress={() => handleRespond(item)}
-          disabled={respondingId === item.id}
-        >
-          {respondingId === item.id ? (
-            <ActivityIndicator color={colors.white} size="small" />
-          ) : (
-            <>
-              <Ionicons name="send" size={16} color={colors.white} />
-              <Text style={[styles.respondButtonText, { color: colors.white }]}>{t('notifications.respond')}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {!item.resolved && (
+          <TouchableOpacity
+            style={[styles.respondButton, { backgroundColor: colors.success }, respondingId === item.id && styles.respondButtonLoading]}
+            onPress={() => handleRespond(item)}
+            disabled={respondingId === item.id}
+          >
+            {respondingId === item.id ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <>
+                <Ionicons name="send" size={16} color={colors.white} />
+                <Text style={[styles.respondButtonText, { color: colors.white }]}>{t('notifications.respond')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

@@ -20,7 +20,6 @@ import { eventService, type BraceletEvent } from "../../services/eventService";
 import { braceletService, type Bracelet } from "../../services/braceletService";
 import { useTheme } from '../../contexts/ThemeContext';
 import { useI18n } from '../../contexts/I18nContext';
-import { useWebSocket } from '../../contexts/WebSocketContext';
 import { getColors } from '../../constants/Colors';
 import { EventTimeline, type EventTimelineItem } from "../../components/EventTimeline";
 
@@ -29,7 +28,6 @@ export default function MapViewScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const { t } = useI18n();
-  const { isConnected, subscribeToBracelet, unsubscribeFromBracelet } = useWebSocket();
   const colors = getColors(isDark);
   const params = useLocalSearchParams();
   const mapViewRef = useRef<MapView>(null);
@@ -74,39 +72,74 @@ export default function MapViewScreen() {
     loadBracelets();
   }, []);
 
-  // Subscribe to WebSocket updates for all bracelets
+  // Poll for bracelet updates every 5 seconds
   useEffect(() => {
-    if (bracelets.length === 0 || !isConnected) return;
+    const pollInterval = setInterval(async () => {
+      try {
+        const data = await braceletService.getBracelets();
+        setBracelets(data);
+      } catch (error) {
+        // Silently fail on polling errors
+        console.log('[MapViewScreen] Polling error:', error);
+      }
+    }, 5000); // Poll every 5 seconds
 
-    bracelets.forEach((bracelet) => {
-      subscribeToBracelet(bracelet.id, (update) => {
-        // Update bracelet location on map in real-time
-        setBracelets((prevBracelets) =>
-          prevBracelets.map((b) =>
-            b.id === update.bracelet.id
-              ? {
-                  ...b,
-                  last_latitude: update.bracelet.last_latitude,
-                  last_longitude: update.bracelet.last_longitude,
-                  last_accuracy: update.bracelet.last_accuracy,
-                  status: update.bracelet.status as any,
-                  battery_level: update.bracelet.battery_level,
-                }
-              : b
-          )
-        );
-      });
-    });
-
-    return () => {
-      bracelets.forEach((bracelet) => {
-        unsubscribeFromBracelet(bracelet.id);
-      });
-    };
-  }, [bracelets, isConnected, subscribeToBracelet, unsubscribeFromBracelet]);
+    return () => clearInterval(pollInterval);
+  }, []);
 
   useEffect(() => {
     fetchUnresolvedEvents();
+  }, [filterType, selectedBraceletId]);
+
+  // Poll for event updates every 5 seconds
+  useEffect(() => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const data = await eventService.getAllEvents();
+        // Filter only events with location data
+        let eventsWithLocation = (data.data || []).filter(
+          (e) =>
+            e.latitude !== null &&
+            e.latitude !== undefined &&
+            e.longitude !== null &&
+            e.longitude !== undefined
+        );
+
+        // Extract unique bracelets from events
+        const uniqueBracelets = Array.from(
+          new Map(
+            eventsWithLocation
+              .filter((e) => e.bracelet)
+              .map((e) => [
+                e.bracelet_id,
+                {
+                  id: e.bracelet_id,
+                  alias:
+                    e.bracelet?.alias || e.bracelet?.unique_code || "Bracelet",
+                  unique_code: e.bracelet?.unique_code || "",
+                },
+              ])
+          ).values()
+        );
+        setAllBracelets(uniqueBracelets);
+
+        // Apply filters
+        let filtered = eventsWithLocation;
+        if (filterType !== "all") {
+          filtered = filtered.filter((e) => e.event_type === filterType);
+        }
+        if (selectedBraceletId !== null) {
+          filtered = filtered.filter((e) => e.bracelet_id === selectedBraceletId);
+        }
+
+        setEvents(filtered);
+      } catch (error) {
+        // Silently fail on polling errors
+        console.log('[MapViewScreen] Event polling error:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
   }, [filterType, selectedBraceletId]);
 
   const loadBracelets = async () => {
@@ -279,6 +312,38 @@ export default function MapViewScreen() {
                 }
           }
         >
+          {/* Blue markers for bracelets with normal tracking (heartbeat/no events) */}
+          {bracelets.map((bracelet) => {
+            // Check if this bracelet has an event on the map
+            const hasEvent = displayedEvents.some((e) => e.bracelet_id === bracelet.id);
+
+            // Only show blue marker if bracelet has location and no event
+            if (
+              !hasEvent &&
+              bracelet.last_latitude &&
+              bracelet.last_longitude &&
+              bracelet.last_latitude !== null &&
+              bracelet.last_longitude !== null
+            ) {
+              return (
+                <Marker
+                  key={`bracelet-${bracelet.id}`}
+                  coordinate={{
+                    latitude: parseFloat(bracelet.last_latitude as any),
+                    longitude: parseFloat(bracelet.last_longitude as any),
+                  }}
+                  title={bracelet.alias || bracelet.unique_code || "Bracelet"}
+                  description={`${t('map.trackedBracelet')} - ${new Date(
+                    bracelet.updated_at || new Date()
+                  ).toLocaleString("fr-FR")}`}
+                  pinColor="#2196F3" // Blue for normal tracking
+                />
+              );
+            }
+            return null;
+          })}
+
+          {/* Colored markers for events (danger, lost, arrived) */}
           {displayedEvents.map((event) => (
             <Marker
               key={event.id}

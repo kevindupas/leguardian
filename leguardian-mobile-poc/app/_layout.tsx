@@ -6,6 +6,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { I18nProvider } from "../contexts/I18nContext";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { WebSocketProvider } from "../contexts/WebSocketContext";
+import { NotificationProvider } from "../contexts/NotificationContext";
 
 // Configure Echo with manual config (avoid import.meta for Hermes compatibility)
 configureEcho({
@@ -24,14 +25,16 @@ function RootLayoutContent() {
 
   return (
     <WebSocketProvider isAuthenticated={isAuthenticated}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="notification-map" />
-        <Stack.Screen name="change-password" />
-      </Stack>
+      <NotificationProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="notification-map" />
+          <Stack.Screen name="change-password" />
+        </Stack>
+      </NotificationProvider>
     </WebSocketProvider>
   );
 }

@@ -36,7 +36,6 @@ Route::prefix('mobile')->middleware('auth:sanctum')->group(function () {
     Route::post('bracelets/{bracelet}/vibrate', [BraceletController::class, 'vibrate']);
     Route::post('bracelets/{bracelet}/resolve-emergency', [BraceletController::class, 'resolveEmergency']);
     Route::get('bracelets/{bracelet}/events', [BraceletController::class, 'getEvents']);
-    Route::get('bracelets/{bracelet}/location-history', [BraceletController::class, 'getLocationHistory']);
     Route::post('bracelets/{bracelet}/respond-to-event', [BraceletController::class, 'respondToEvent']);
 
     // Events

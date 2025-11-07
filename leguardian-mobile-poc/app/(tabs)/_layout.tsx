@@ -2,12 +2,15 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useI18n } from '../../contexts/I18nContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { getColors } from '../../constants/Colors';
+import { View, Text, StyleSheet } from 'react-native';
 
 export default function TabsLayout() {
   const { isDark } = useTheme();
   const { t } = useI18n();
   const colors = getColors(isDark);
+  const { unreadCount } = useNotifications();
 
   return (
     <Tabs
@@ -43,7 +46,21 @@ export default function TabsLayout() {
         options={{
           title: t('navigation.notifications'),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" size={size} color={color} />
+            <View>
+              <Ionicons name="notifications" size={size} color={color} />
+              {unreadCount > 0 && (
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: colors.danger },
+                  ]}
+                >
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           ),
         }}
       />
@@ -68,3 +85,21 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    position: 'absolute',
+    right: -8,
+    top: -8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+});

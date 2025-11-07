@@ -1,23 +1,21 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { authService } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 export default function Index() {
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const isAuthenticated = await authService.isAuthenticated();
-    if (isAuthenticated) {
-      router.replace('/(tabs)');
-    } else {
-      router.replace('/login');
+    if (!isLoading) {
+      if (isAuthenticated) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace('/login');
+      }
     }
-  };
+  }, [isAuthenticated, isLoading]);
 
   return (
     <View style={styles.container}>

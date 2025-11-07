@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { configureEcho } from "@laravel/echo-react";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { I18nProvider } from "../contexts/I18nContext";
+import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { WebSocketProvider } from "../contexts/WebSocketContext";
 
 // Configure Echo with manual config (avoid import.meta for Hermes compatibility)
@@ -17,6 +18,24 @@ configureEcho({
   enabledTransports: ["ws", "wss"],
 });
 
+// Inner component that has access to useAuth
+function RootLayoutContent() {
+  const { isAuthenticated } = useAuth();
+
+  return (
+    <WebSocketProvider isAuthenticated={isAuthenticated}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="notification-map" />
+        <Stack.Screen name="change-password" />
+      </Stack>
+    </WebSocketProvider>
+  );
+}
+
 export default function RootLayout() {
   console.log("Prout");
 
@@ -25,16 +44,9 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider>
           <I18nProvider>
-            <WebSocketProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="login" />
-                <Stack.Screen name="register" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="notification-map" />
-                <Stack.Screen name="change-password" />
-              </Stack>
-            </WebSocketProvider>
+            <AuthProvider>
+              <RootLayoutContent />
+            </AuthProvider>
           </I18nProvider>
         </ThemeProvider>
       </GestureHandlerRootView>

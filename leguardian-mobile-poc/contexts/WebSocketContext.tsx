@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../services/api';
 
 interface BraceletUpdate {
   bracelet: {
@@ -18,6 +19,19 @@ interface BraceletUpdate {
   timestamp: string;
 }
 
+interface EchoListenResponse {
+  subscribed: (cb: () => void) => EchoListenResponse;
+  error: (cb: (error: any) => void) => EchoListenResponse;
+}
+
+interface Echo {
+  ws: WebSocket;
+  private: (channel: string) => {
+    listen: (eventName: string, callback: (data: any) => void) => EchoListenResponse;
+  };
+  leave: (channel: string) => void;
+}
+
 interface WebSocketContextType {
   isConnected: boolean;
   isConnecting: boolean;
@@ -33,13 +47,14 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 
 let echoInstance: Echo | null = null;
 
-export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const WebSocketProvider: React.FC<{ children: React.ReactNode; isAuthenticated?: boolean }> = ({ children, isAuthenticated = false }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
   const subscriptionsRef = useRef<Map<string, any>>(new Map());
   const callbacksRef = useRef<Map<string, (update: any) => void>>(new Map());
   const allBraceletsCallbackRef = useRef<((update: BraceletUpdate) => void) | null>(null);
+  const socketIdRef = useRef<string>('');
 
   const connect = useCallback(async () => {
     if (isConnected || isConnecting) return;
@@ -64,8 +79,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const port = process.env.EXPO_PUBLIC_REVERB_PORT;
       const key = process.env.EXPO_PUBLIC_REVERB_APP_KEY;
 
-      // Include auth token in the connection URL as query param
-      const wsUrl = `${scheme}://${host}:${port}/app/${key}?protocol=7&client=js&version=7.0.0&flash=false&Authorization=${encodeURIComponent('Bearer ' + authToken)}`;
+      // Build WebSocket URL - NO auth token here, it goes in subscribe message
+      const wsUrl = `${scheme}://${host}:${port}/app/${key}?protocol=7&client=js&version=7.0.0&flash=false`;
 
       console.log('[WebSocket] Connecting to Reverb with auth...');
 
@@ -76,13 +91,45 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ws,
         private: (channel: string) => {
           console.log('[WebSocket] Subscribing to private channel:', channel);
-          const subMessage = {
-            event: 'pusher:subscribe',
-            data: {
-              channel: channel,
-            },
+
+          // Request channel authentication from backend via API
+          const requestChannelAuth = async () => {
+            try {
+              console.log('[WebSocket] Requesting channel auth from backend for:', channel);
+              const response = await api.post('/broadcasting/auth', {
+                channel_name: channel,
+                socket_id: socketIdRef.current,
+              });
+              console.log('[WebSocket] Channel auth response:', response.data);
+              return response.data;
+            } catch (error) {
+              console.error('[WebSocket] Failed to get channel auth:', error);
+              return null;
+            }
           };
-          ws.send(JSON.stringify(subMessage));
+
+          // Subscribe to the channel with proper authentication
+          const subscribeToChannel = async () => {
+            const auth = await requestChannelAuth();
+            if (!auth) {
+              console.error('[WebSocket] No auth received, cannot subscribe to', channel);
+              return;
+            }
+
+            const subMessage = {
+              event: 'pusher:subscribe',
+              data: {
+                channel: channel,
+                auth: auth.auth,  // Send the HMAC signature from backend
+              },
+            };
+            console.log('[WebSocket] Sending subscribe message with proper auth for:', channel);
+            ws.send(JSON.stringify(subMessage));
+          };
+
+          // Start subscription immediately
+          subscribeToChannel();
+
           return {
             listen: (eventName: string, callback: (data: any) => void) => {
               console.log(`[WebSocket] Registering listener for ${eventName}`);
@@ -124,6 +171,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           // Handle connection confirmation
           if (data.event === 'pusher:connection_established' || data.event === 'pusher_internal:connection_established') {
             console.log('[WebSocket] ✓ Connection established by Reverb');
+
+            // Extract socket_id from the response
+            try {
+              const connData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+              if (connData.socket_id) {
+                socketIdRef.current = connData.socket_id;
+                console.log('[WebSocket] Socket ID stored:', socketIdRef.current);
+              }
+            } catch (e) {
+              console.error('[WebSocket] Failed to parse connection data:', e);
+            }
+
             setIsConnected(true);
             setIsConnecting(false);
             return;
@@ -192,7 +251,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsConnecting(false);
       echoInstance = null;
     }
-  }, [isConnected, isConnecting]);
+  }, []);
 
   const disconnect = useCallback(() => {
     console.log('[WebSocket] Disconnecting...');
@@ -271,10 +330,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!echoInstance) return;
 
     const channelName = `bracelet.${braceletId}`;
+    const eventName = 'bracelet.updated';
     try {
       echoInstance.leave(channelName);
       subscriptionsRef.current.delete(channelName);
-      callbacksRef.current.delete(braceletId);
+      callbacksRef.current.delete(`${braceletId}:${eventName}`);
       console.log(`[WebSocket] Unsubscribed from ${channelName}`);
     } catch (e) {
       console.log('[WebSocket] Error unsubscribing:', e);
@@ -289,16 +349,22 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     allBraceletsCallbackRef.current = null;
   }, []);
 
-  // Auto-connect when component mounts
+  // Auto-connect when component mounts and when isAuthenticated changes
   useEffect(() => {
-    console.log('[WebSocket] Provider mounted, calling connect()');
-    connect();
+    console.log('[WebSocket] Auth state changed, isAuthenticated:', isAuthenticated);
+
+    if (isAuthenticated) {
+      console.log('[WebSocket] User authenticated, calling connect()');
+      connect();
+    } else {
+      console.log('[WebSocket] User not authenticated, calling disconnect()');
+      disconnect();
+    }
 
     return () => {
-      console.log('[WebSocket] Provider unmounting, calling disconnect()');
-      disconnect();
+      console.log('[WebSocket] Cleanup effect');
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <WebSocketContext.Provider

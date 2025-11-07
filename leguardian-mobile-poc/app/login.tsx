@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { authService } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -16,9 +17,11 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await authService.login({ email, password });
+      await login({ email, password });
+      console.log('[Login] Login successful, navigating to home');
       router.replace('/(tabs)');
     } catch (error: any) {
+      console.error('[Login] Login failed:', error);
       Alert.alert(
         'Erreur de connexion',
         error.response?.data?.message || 'Email ou mot de passe incorrect'

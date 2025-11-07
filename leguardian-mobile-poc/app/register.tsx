@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { router } from 'expo-router';
-import { authService } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -9,6 +9,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
 
   const handleRegister = async () => {
     if (!name || !email || !password || !passwordConfirmation) {
@@ -28,14 +29,16 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await authService.register({
+      await register({
         name,
         email,
         password,
         password_confirmation: passwordConfirmation,
       });
+      console.log('[Register] Registration successful, navigating to home');
       router.replace('/(tabs)');
     } catch (error: any) {
+      console.error('[Register] Registration failed:', error);
       Alert.alert(
         'Erreur d\'inscription',
         error.response?.data?.message || 'Une erreur est survenue'

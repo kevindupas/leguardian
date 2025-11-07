@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import api from '../services/api';
 
 interface BraceletUpdate {
@@ -96,14 +97,28 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode; isAuthenti
           const requestChannelAuth = async () => {
             try {
               console.log('[WebSocket] Requesting channel auth from backend for:', channel);
-              const response = await api.post('/broadcasting/auth', {
+              const token = await AsyncStorage.getItem('auth_token');
+
+              // Call the broadcasting/auth endpoint via API with Sanctum auth
+              const response = await axios.post('https://api.tracklify.app/api/broadcasting/auth', {
                 channel_name: channel,
                 socket_id: socketIdRef.current,
+              }, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                }
               });
               console.log('[WebSocket] Channel auth response:', response.data);
               return response.data;
             } catch (error) {
               console.error('[WebSocket] Failed to get channel auth:', error);
+              // Log more details for debugging
+              if (error instanceof Error && 'response' in error) {
+                const axiosError = error as any;
+                console.error('[WebSocket] Auth error status:', axiosError.response?.status);
+                console.error('[WebSocket] Auth error data:', axiosError.response?.data);
+              }
               return null;
             }
           };

@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BraceletController;
 use App\Http\Controllers\Api\DeviceController;
@@ -11,6 +12,9 @@ use App\Http\Controllers\Api\DeviceController;
 | API Routes
 |--------------------------------------------------------------------------
 */
+
+// Broadcasting auth route for mobile clients (requires Bearer token)
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 // Public Auth Routes
 Route::prefix('mobile/auth')->group(function () {

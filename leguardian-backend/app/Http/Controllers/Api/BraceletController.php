@@ -324,10 +324,13 @@ class BraceletController extends Controller
 
         // Mark event as resolved if provided
         if ($request->has('event_id') && $request->event_id) {
-            BraceletEvent::find($request->event_id)->update([
-                'resolved' => true,
-                'resolved_at' => now(),
-            ]);
+            $event = BraceletEvent::find($request->event_id);
+            if ($event) {
+                $event->update([
+                    'resolved' => true,
+                    'resolved_at' => now(),
+                ]);
+            }
         }
 
         return response()->json([

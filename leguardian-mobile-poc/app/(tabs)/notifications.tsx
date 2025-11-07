@@ -70,7 +70,7 @@ export default function NotificationsScreen() {
     const pollInterval = setInterval(async () => {
       try {
         const data = await eventService.getAllEvents();
-        let filteredEvents = data.data || [];
+        let filteredEvents = (data.data || []).filter((e) => e.event_type !== 'heartbeat');
 
         // Extract unique bracelets from events
         const uniqueBracelets = Array.from(
@@ -111,7 +111,7 @@ export default function NotificationsScreen() {
   const fetchEvents = async () => {
     try {
       const data = await eventService.getAllEvents();
-      let filteredEvents = data.data || [];
+      let filteredEvents = (data.data || []).filter((e) => e.event_type !== 'heartbeat');
 
       // Extract unique bracelets from events
       const uniqueBracelets = Array.from(

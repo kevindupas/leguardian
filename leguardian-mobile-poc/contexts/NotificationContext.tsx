@@ -14,7 +14,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const refetchNotifications = async () => {
     try {
       const data = await eventService.getAllEvents();
-      const unresolved = (data.data || []).filter((e) => !e.resolved);
+      const unresolved = (data.data || [])
+        .filter((e) => !e.resolved)
+        .filter((e) => e.event_type !== 'heartbeat'); // Exclude heartbeat from notification count
       setUnreadCount(unresolved.length);
     } catch (error) {
       console.log('[NotificationContext] Error fetching notifications:', error);

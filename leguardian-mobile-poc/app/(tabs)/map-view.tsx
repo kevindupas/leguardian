@@ -48,6 +48,7 @@ export default function MapViewScreen() {
     Array<{ id: number; alias: string; unique_code: string }>
   >([]);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [heartbeatEvents, setHeartbeatEvents] = useState<BraceletEvent[]>([]);
 
   // Configure header with filter button
   useLayoutEffect(() => {
@@ -105,6 +106,14 @@ export default function MapViewScreen() {
             e.longitude !== undefined
         );
 
+        // Separate heartbeat events from other events
+        const allHeartbeats = eventsWithLocation
+          .filter((e) => e.event_type === 'heartbeat')
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 30); // Last 30 heartbeats
+
+        setHeartbeatEvents(allHeartbeats);
+
         // Extract unique bracelets from events
         const uniqueBracelets = Array.from(
           new Map(
@@ -123,8 +132,8 @@ export default function MapViewScreen() {
         );
         setAllBracelets(uniqueBracelets);
 
-        // Apply filters
-        let filtered = eventsWithLocation;
+        // Apply filters (exclude heartbeats from main event list)
+        let filtered = eventsWithLocation.filter((e) => e.event_type !== 'heartbeat');
         if (filterType !== "all") {
           filtered = filtered.filter((e) => e.event_type === filterType);
         }
@@ -342,6 +351,21 @@ export default function MapViewScreen() {
             }
             return null;
           })}
+
+          {/* Light blue markers for heartbeat trail (last 30 positions) */}
+          {heartbeatEvents.map((heartbeat, index) => (
+            <Marker
+              key={`heartbeat-${heartbeat.id}`}
+              coordinate={{
+                latitude: parseFloat(heartbeat.latitude as any),
+                longitude: parseFloat(heartbeat.longitude as any),
+              }}
+              title={`${t('map.trackedBracelet')} (${index + 1}/${heartbeatEvents.length})`}
+              description={`${new Date(heartbeat.created_at).toLocaleString('fr-FR')}`}
+              pinColor="#87CEEB" // Light blue for heartbeat trail
+              opacity={0.5 + (index / heartbeatEvents.length) * 0.5} // Fade from light to more opaque
+            />
+          ))}
 
           {/* Colored markers for events (danger, lost, arrived) */}
           {displayedEvents.map((event) => (

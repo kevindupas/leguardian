@@ -3,7 +3,7 @@ import api from './api';
 export interface BraceletEvent {
   id: number;
   bracelet_id: number;
-  event_type: 'arrived' | 'lost' | 'danger';
+  event_type: 'arrived' | 'lost' | 'danger' | 'heartbeat';
   latitude: number | null;
   longitude: number | null;
   accuracy: number | null;

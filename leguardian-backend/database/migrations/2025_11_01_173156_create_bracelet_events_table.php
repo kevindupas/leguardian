@@ -38,10 +38,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('bracelet_events');
-
-        // Drop the enum type if it exists (PostgreSQL)
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement('DROP TYPE IF EXISTS bracelet_events_event_type_enum CASCADE;');
-        }
     }
 };

@@ -298,159 +298,153 @@ export default function MapViewScreen() {
   // Filter events - only show unresolved
   const displayedEvents = events.filter((e) => !e.resolved);
 
+  // Get the latest event (arrived, lost, danger - not heartbeat)
+  const latestEvent = displayedEvents
+    .filter((e) => ['arrived', 'lost', 'danger'].includes(e.event_type))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] || null;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.white }]} edges={["left", "right"]}>
-      <View style={styles.mainContainer}>
-        {/* Map View - Takes 55% of available space */}
-        <MapView
-          ref={mapViewRef}
-          style={styles.map}
-          initialRegion={
-            displayedEvents.length > 0
-              ? {
-                  latitude: parseFloat(displayedEvents[0].latitude as any),
-                  longitude: parseFloat(displayedEvents[0].longitude as any),
-                  latitudeDelta: 0.05,
-                  longitudeDelta: 0.05,
-                }
-              : {
-                  latitude: 48.8566,
-                  longitude: 2.3522,
-                  latitudeDelta: 0.05,
-                  longitudeDelta: 0.05,
-                }
-          }
-        >
-          {/* Blue markers for bracelets with normal tracking (heartbeat/no events) */}
-          {bracelets.map((bracelet) => {
-            // Check if this bracelet has an event on the map
-            const hasEvent = displayedEvents.some((e) => e.bracelet_id === bracelet.id);
-
-            // Only show blue marker if bracelet has location and no event
-            if (
-              !hasEvent &&
-              bracelet.last_latitude &&
-              bracelet.last_longitude &&
-              bracelet.last_latitude !== null &&
-              bracelet.last_longitude !== null
-            ) {
-              return (
-                <Marker
-                  key={`bracelet-${bracelet.id}`}
-                  coordinate={{
-                    latitude: parseFloat(bracelet.last_latitude as any),
-                    longitude: parseFloat(bracelet.last_longitude as any),
-                  }}
-                  title={bracelet.alias || bracelet.unique_code || "Bracelet"}
-                  description={`${t('map.trackedBracelet')} - ${new Date(
-                    bracelet.updated_at || new Date()
-                  ).toLocaleString("fr-FR")}`}
-                  pinColor="#2196F3" // Blue for normal tracking
-                />
-              );
-            }
-            return null;
-          })}
-
-          {/* Light blue markers for heartbeat trail (last 30 positions) */}
-          {heartbeatEvents.map((heartbeat, index) => (
-            <Marker
-              key={`heartbeat-${heartbeat.id}`}
-              coordinate={{
-                latitude: parseFloat(heartbeat.latitude as any),
-                longitude: parseFloat(heartbeat.longitude as any),
-              }}
-              title={`${t('map.trackedBracelet')} (${index + 1}/${heartbeatEvents.length})`}
-              description={`${new Date(heartbeat.created_at).toLocaleString('fr-FR')}`}
-              pinColor="#87CEEB" // Light blue for heartbeat trail
-              opacity={0.5 + (index / heartbeatEvents.length) * 0.5} // Fade from light to more opaque
-            />
-          ))}
-
-          {/* Colored markers for events (danger, lost, arrived) */}
-          {displayedEvents.map((event) => (
-            <Marker
-              key={event.id}
-              coordinate={{
-                latitude: parseFloat(event.latitude as any),
-                longitude: parseFloat(event.longitude as any),
-              }}
-              title={
-                event.bracelet?.alias ||
-                event.bracelet?.unique_code ||
-                "Bracelet"
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.white }]} edges={["left", "right", "bottom"]}>
+      <MapView
+        ref={mapViewRef}
+        style={styles.fullscreenMap}
+        initialRegion={
+          displayedEvents.length > 0
+            ? {
+                latitude: parseFloat(displayedEvents[0].latitude as any),
+                longitude: parseFloat(displayedEvents[0].longitude as any),
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
               }
-              description={`${getEventTypeLabel(event.event_type)} - ${new Date(
-                event.created_at
-              ).toLocaleString("fr-FR")}`}
-              pinColor={getEventTypeColor(event.event_type)}
-              onPress={() => setSelectedEvent(event)}
-            />
-          ))}
-        </MapView>
+            : {
+                latitude: 48.8566,
+                longitude: 2.3522,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              }
+        }
+      >
+        {/* Blue markers for bracelets with normal tracking (heartbeat/no events) */}
+        {bracelets.map((bracelet) => {
+          // Check if this bracelet has an event on the map
+          const hasEvent = displayedEvents.some((e) => e.bracelet_id === bracelet.id);
 
-        {/* Events List Bottom Sheet - Takes 45% of available space */}
-        <View style={[styles.eventsList, { backgroundColor: colors.white }]}>
-          <View style={[styles.listHeader, { borderBottomColor: colors.mediumBg }]}>
-            <Text style={[styles.listTitle, { color: colors.textPrimary }]}>
-              {displayedEvents.length} {displayedEvents.length > 1 ? t('map.events') : t('map.event')} {t('map.pending')}
-            </Text>
-            <TouchableOpacity
-              style={[styles.refreshButton, { backgroundColor: '#EBF5FB' }]}
-              onPress={handleRefresh}
-            >
-              <Ionicons name="refresh" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
+          // Only show blue marker if bracelet has location and no event
+          if (
+            !hasEvent &&
+            bracelet.last_latitude &&
+            bracelet.last_longitude &&
+            bracelet.last_latitude !== null &&
+            bracelet.last_longitude !== null
+          ) {
+            return (
+              <Marker
+                key={`bracelet-${bracelet.id}`}
+                coordinate={{
+                  latitude: parseFloat(bracelet.last_latitude as any),
+                  longitude: parseFloat(bracelet.last_longitude as any),
+                }}
+                title={bracelet.alias || bracelet.unique_code || "Bracelet"}
+                description={`${t('map.trackedBracelet')} - ${new Date(
+                  bracelet.updated_at || new Date()
+                ).toLocaleString("fr-FR")}`}
+                pinColor="#2196F3" // Blue for normal tracking
+              />
+            );
+          }
+          return null;
+        })}
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {displayedEvents.map((event) => (
-              <TouchableOpacity
-                key={event.id}
+        {/* Light blue markers for heartbeat trail (last 30 positions) */}
+        {heartbeatEvents.map((heartbeat, index) => (
+          <Marker
+            key={`heartbeat-${heartbeat.id}`}
+            coordinate={{
+              latitude: parseFloat(heartbeat.latitude as any),
+              longitude: parseFloat(heartbeat.longitude as any),
+            }}
+            title={`${t('map.trackedBracelet')} (${index + 1}/${heartbeatEvents.length})`}
+            description={`${new Date(heartbeat.created_at).toLocaleString('fr-FR')}`}
+            pinColor="#87CEEB" // Light blue for heartbeat trail
+            opacity={0.5 + (index / heartbeatEvents.length) * 0.5} // Fade from light to more opaque
+          />
+        ))}
+
+        {/* Colored markers for events (danger, lost, arrived) */}
+        {displayedEvents.map((event) => (
+          <Marker
+            key={event.id}
+            coordinate={{
+              latitude: parseFloat(event.latitude as any),
+              longitude: parseFloat(event.longitude as any),
+            }}
+            title={
+              event.bracelet?.alias ||
+              event.bracelet?.unique_code ||
+              "Bracelet"
+            }
+            description={`${getEventTypeLabel(event.event_type)} - ${new Date(
+              event.created_at
+            ).toLocaleString("fr-FR")}`}
+            pinColor={getEventTypeColor(event.event_type)}
+            onPress={() => setSelectedEvent(event)}
+          />
+        ))}
+      </MapView>
+
+      {/* Latest Event Card Overlay - Bottom of map */}
+      {latestEvent && (
+        <View style={[styles.eventCardOverlay, { backgroundColor: colors.white }]}>
+          <View style={styles.eventCardContent}>
+            <View style={styles.eventCardLeft}>
+              <View
                 style={[
-                  styles.eventItem,
-                  { backgroundColor: colors.lightBg, borderLeftColor: getEventTypeColor(event.event_type) },
-                  selectedEvent?.id === event.id && { ...styles.eventItemSelected, backgroundColor: '#EBF5FB' },
+                  styles.eventCardIcon,
+                  {
+                    backgroundColor:
+                      getEventTypeColor(latestEvent.event_type) + "20",
+                  },
                 ]}
-                onPress={() => animateToEvent(event)}
               >
-                <View
+                <Ionicons
+                  name={getEventTypeIcon(latestEvent.event_type) as any}
+                  size={20}
+                  color={getEventTypeColor(latestEvent.event_type)}
+                />
+              </View>
+              <View style={styles.eventCardInfo}>
+                <Text style={[styles.eventCardBraceletName, { color: colors.textPrimary }]}>
+                  {latestEvent.bracelet?.alias ||
+                    latestEvent.bracelet?.unique_code ||
+                    "Bracelet"}
+                </Text>
+                <Text
                   style={[
-                    styles.eventIcon,
-                    {
-                      backgroundColor:
-                        getEventTypeColor(event.event_type) + "20",
-                    },
+                    styles.eventCardType,
+                    { color: getEventTypeColor(latestEvent.event_type) },
                   ]}
                 >
-                  <Ionicons
-                    name={getEventTypeIcon(event.event_type) as any}
-                    size={16}
-                    color={getEventTypeColor(event.event_type)}
-                  />
-                </View>
+                  {getEventTypeLabel(latestEvent.event_type)}
+                </Text>
+              </View>
+            </View>
 
-                <View style={styles.eventItemContent}>
-                  <Text style={[styles.eventItemTitle, { color: colors.textPrimary }]}>
-                    {event.bracelet?.alias ||
-                      event.bracelet?.unique_code ||
-                      "Bracelet"}
+            <View style={styles.eventCardRight}>
+              {latestEvent.battery_level !== undefined && (
+                <View style={styles.eventCardBattery}>
+                  <Ionicons name="battery-full" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.eventCardBatteryText, { color: colors.textSecondary }]}>
+                    {latestEvent.battery_level}%
                   </Text>
-                  <Text style={[styles.eventItemType, { color: colors.textSecondary }]}>
-                    {getEventTypeLabel(event.event_type)}
-                  </Text>
-                  {event.battery_level !== undefined && (
-                    <Text style={[styles.eventItemBattery, { color: colors.textSecondary }]}>
-                      {t('eventDetails.battery')}: {event.battery_level}%
-                    </Text>
-                  )}
                 </View>
-
+              )}
+              <TouchableOpacity onPress={() => animateToEvent(latestEvent)}>
+                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            </View>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Selected Event Detail Modal */}
       {selectedEvent && (
@@ -780,100 +774,10 @@ const createStyles = (colors: ReturnType<typeof getColors>) => StyleSheet.create
     alignItems: "center",
     gap: 12,
   },
-  map: {
-    flex: 0.55,
-  },
-  eventsList: {
-    flex: 0.45,
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  listHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.mediumBg,
-  },
-  listTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
-    backgroundColor: "#EBF5FB",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  eventItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: 11,
-    borderLeftWidth: 3,
-    backgroundColor: colors.lightBg,
-    gap: 12,
-  },
-  eventItemSelected: {
-    backgroundColor: "#EBF5FB",
-  },
-  eventIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  eventItemContent: {
+  fullscreenMap: {
     flex: 1,
-  },
-  eventItemTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  eventItemType: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  eventItemBattery: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 8,
+    width: '100%',
+    height: '100%',
   },
   // Event Detail Modal Styles
   modalBackdropEvent: {
@@ -1012,5 +916,72 @@ const createStyles = (colors: ReturnType<typeof getColors>) => StyleSheet.create
     fontSize: 15,
     fontWeight: "700",
     color: colors.white,
+  },
+  // Event Card Overlay Styles
+  eventCardOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  eventCardContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  eventCardLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  eventCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  eventCardInfo: {
+    flex: 1,
+  },
+  eventCardBraceletName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  eventCardType: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  eventCardRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  eventCardBattery: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.lightBg,
+    borderRadius: 8,
+  },
+  eventCardBatteryText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
 });

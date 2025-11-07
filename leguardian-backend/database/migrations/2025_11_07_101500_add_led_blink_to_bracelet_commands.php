@@ -12,13 +12,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // PostgreSQL: Update enum type to include led_blink
-        if (config('database.default') === 'pgsql') {
-            DB::statement("ALTER TYPE command_type_enum ADD VALUE 'led_blink'");
-        }
-
-        // SQLite or other databases: Just add the value via raw SQL if needed
-        // SQLite doesn't have enums, so we don't need to do anything special
+        // Convert command_type from enum to VARCHAR for PostgreSQL
+        DB::statement("ALTER TABLE bracelet_commands ALTER COLUMN command_type TYPE VARCHAR(255)");
     }
 
     /**
@@ -26,11 +21,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // PostgreSQL: Remove led_blink from enum
-        if (config('database.default') === 'pgsql') {
-            // Note: PostgreSQL doesn't allow removing values from enums directly
-            // You would need to rename the type and create a new one
-            // For now, we'll just leave it as is
-        }
+        // Revert back to enum if needed
+        Schema::table('bracelet_commands', function (Blueprint $table) {
+            if (config('database.default') === 'pgsql') {
+                // Note: This would require recreating the type, so we'll skip it
+                // DB::statement("ALTER TABLE bracelet_commands ALTER COLUMN command_type TYPE command_type USING command_type::command_type");
+            }
+        });
     }
 };

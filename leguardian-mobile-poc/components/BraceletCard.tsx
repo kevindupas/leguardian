@@ -151,7 +151,7 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
               onPress={() => setIsCustomizationOpen(true)}
             >
               <Ionicons
-                name="palette"
+                name="brush"
                 size={14}
                 color={colors.primary}
               />

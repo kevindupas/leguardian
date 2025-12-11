@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->string('unique_code', 50)->unique()->index();
-            $table->string('name'); // Identifiant unique du modèle (ex: BR-2025-001)
-            $table->string('alias')->nullable(); // Surnom donné par l'utilisateur
+            $table->string('name'); 
+            $table->string('alias')->nullable(); 
             $table->enum('status', ['active', 'inactive', 'lost', 'emergency'])->default('inactive');
             $table->integer('battery_level')->default(100);
             $table->timestamp('last_ping_at')->nullable();

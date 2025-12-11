@@ -6,6 +6,9 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useI18n } from "../contexts/I18nContext";
 import { LocationCard } from "./LocationCard";
 import { EditBraceletModal } from "./EditBraceletModal";
+import { useBraceletCustomization } from "../hooks/useBraceletCustomization";
+import { BraceletAvatar } from "./BraceletAvatar";
+import { BraceletCustomizationModal } from "./BraceletCustomizationModal";
 
 interface BraceletCardProps {
   id: number;
@@ -43,9 +46,11 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
   const { isDark } = useTheme();
   const { t } = useI18n();
   const colors = getColors(isDark);
+  const { color, photoUri } = useBraceletCustomization(id);
 
   const [showLocation, setShowLocation] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
   const statusColors = {
     safe: {
       bg: isDark ? "#1e5c3e" : "#E8F8F5",
@@ -69,14 +74,13 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
   return (
     <View>
       <TouchableOpacity activeOpacity={1} style={[styles.card, { backgroundColor: colors.lightBg, borderColor: colors.mediumBg }]}>
-        {/* Status Badge */}
-        <View style={[styles.statusBadge, { backgroundColor: current.bg }]}>
-          <Ionicons
-            name={current.icon as any}
-            size={20}
-            color={current.color}
-          />
-        </View>
+        {/* Avatar Badge */}
+        <BraceletAvatar
+          braceletName={name}
+          color={color}
+          photoUri={photoUri}
+          size="medium"
+        />
 
         {/* Content */}
         <View style={styles.content} pointerEvents="box-none">
@@ -144,14 +148,14 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
           <View style={styles.locationButtonsContainer}>
             <TouchableOpacity
               style={[styles.locationButton, { backgroundColor: colors.lightBg, borderColor: colors.primary }]}
-              onPress={() => setIsEditModalOpen(true)}
+              onPress={() => setIsCustomizationOpen(true)}
             >
               <Ionicons
-                name="pencil"
+                name="palette"
                 size={14}
                 color={colors.primary}
               />
-              <Text style={[styles.locationButtonText, { color: colors.primary }]}>{t('bracelet.edit')}</Text>
+              <Text style={[styles.locationButtonText, { color: colors.primary }]}>Personnaliser</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -243,6 +247,15 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
           title={`Localisation de ${name}`}
         />
       )}
+
+      {/* Customization Modal */}
+      <BraceletCustomizationModal
+        isOpen={isCustomizationOpen}
+        onClose={() => setIsCustomizationOpen(false)}
+        braceletId={id}
+        braceletName={name}
+        onCustomizationSaved={onBraceletUpdated}
+      />
 
       {/* Edit Bracelet Modal */}
       <EditBraceletModal

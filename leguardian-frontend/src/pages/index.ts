@@ -1,7 +1,0 @@
-export { LoginPage } from './LoginPage'
-export { RegisterPage } from './RegisterPage'
-export { DashboardPage } from './DashboardPage'
-export { BraceletRegisterPage } from './BraceletRegisterPage'
-export { MapPage } from './MapPage'
-export { SettingsPage } from './SettingsPage'
-export { NotificationsPage } from './NotificationsPage'

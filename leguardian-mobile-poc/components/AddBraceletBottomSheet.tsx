@@ -15,6 +15,7 @@ import {
 import { CameraView, Camera } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { braceletService } from "../services/braceletService";
+import { BraceletCustomizationModal } from "./BraceletCustomizationModal";
 
 interface AddBraceletBottomSheetProps {
   onBraceletAdded: () => void;
@@ -38,6 +39,8 @@ export const AddBraceletBottomSheet = ({
   const [showAliasInput, setShowAliasInput] = useState(false);
   const [alias, setAlias] = useState("");
   const [scannedCode, setScannedCode] = useState("");
+  const [showCustomization, setShowCustomization] = useState(false);
+  const [justAddedBraceletId, setJustAddedBraceletId] = useState<number | null>(null);
 
   const resetForm = useCallback(() => {
     setScanning(false);
@@ -111,13 +114,13 @@ export const AddBraceletBottomSheet = ({
 
     setSubmitting(true);
     try {
-      await braceletService.registerBracelet(
+      const response: any = await braceletService.registerBracelet(
         scannedCode.toUpperCase(),
         alias || undefined
       );
-      Alert.alert("Succès", `Bracelet enregistré avec succès`);
-      resetForm();
-      onBraceletAdded();
+      const braceletId = response?.id;
+      setJustAddedBraceletId(braceletId);
+      setShowCustomization(true);
     } catch (error: any) {
       Alert.alert(
         "Erreur",
@@ -126,6 +129,13 @@ export const AddBraceletBottomSheet = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCustomizationComplete = () => {
+    Alert.alert("Succès", `Bracelet enregistré avec succès`);
+    resetForm();
+    setShowCustomization(false);
+    onBraceletAdded();
   };
 
   return (
@@ -407,6 +417,16 @@ export const AddBraceletBottomSheet = ({
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {showCustomization && justAddedBraceletId && (
+        <BraceletCustomizationModal
+          isOpen={showCustomization}
+          onClose={handleCustomizationComplete}
+          braceletId={justAddedBraceletId}
+          braceletName={alias || scannedCode}
+          onCustomizationSaved={handleCustomizationComplete}
+        />
+      )}
     </Modal>
   );
 };

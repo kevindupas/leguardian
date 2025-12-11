@@ -177,6 +177,48 @@ export const BraceletCustomizationModal: React.FC<
               ))}
             </View>
           </View>
+
+          {/* Photo Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Photo de l'enfant</Text>
+
+            {selectedPhoto ? (
+              <View style={styles.photoSelectedContainer}>
+                <View style={styles.photoSelectedIcon}>
+                  <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                </View>
+                <Text style={styles.photoSelectedText}>Photo ajoutée</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.photoButtonsContainer}>
+              <Pressable
+                onPress={() => handlePickImage("camera")}
+                style={({ pressed }) => [styles.photoButton, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="camera" size={20} color="#2196F3" />
+                <Text style={styles.photoButtonText}>Caméra</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => handlePickImage("gallery")}
+                style={({ pressed }) => [styles.photoButton, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="image" size={20} color="#2196F3" />
+                <Text style={styles.photoButtonText}>Galerie</Text>
+              </Pressable>
+
+              {selectedPhoto && (
+                <Pressable
+                  onPress={() => setSelectedPhoto(null)}
+                  style={({ pressed }) => [styles.photoButton, styles.photoButtonDanger, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name="trash" size={20} color="#f44336" />
+                  <Text style={styles.photoButtonTextDanger}>Supprimer</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
         </ScrollView>
 
         {/* Bottom Actions */}
@@ -343,6 +385,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#2196F3",
+  },
+  photoButtonDanger: {
+    backgroundColor: "#ffebee",
+    borderColor: "#f44336",
+  },
+  photoButtonTextDanger: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#f44336",
   },
   bottomActions: {
     flexDirection: "row",

@@ -176,29 +176,19 @@ export const BraceletCustomizationModal: React.FC<BraceletCustomizationModalProp
             <Text style={styles.sectionTitle}>Photo de l'enfant</Text>
 
             {selectedPhoto ? (
-              <View style={styles.photoContainer}>
-                <Image source={{ uri: selectedPhoto }} style={styles.photoPreview} />
-                <View style={styles.photoActions}>
-                  <Pressable
-                    onPress={() => handlePickImage('gallery')}
-                    style={({ pressed }) => [styles.photoActionButton, pressed && { opacity: 0.7 }]}
-                  >
-                    <Ionicons name="pencil" size={18} color="#2196F3" />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedPhoto(null)}
-                    style={({ pressed }) => [styles.photoActionButton, pressed && { opacity: 0.7 }]}
-                  >
-                    <Ionicons name="trash" size={18} color="#f44336" />
-                  </Pressable>
+              <View style={styles.photoSelectedContainer}>
+                <View style={styles.photoSelectedIcon}>
+                  <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
                 </View>
+                <Text style={styles.photoSelectedText}>Photo ajoutée</Text>
+                <Pressable
+                  onPress={() => setSelectedPhoto(null)}
+                  style={({ pressed }) => [styles.removePhotoLink, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={styles.removePhotoText}>Modifier</Text>
+                </Pressable>
               </View>
-            ) : (
-              <View style={styles.photoPlaceholder}>
-                <Ionicons name="image-outline" size={48} color="#ccc" />
-                <Text style={styles.placeholderText}>Ajouter une photo</Text>
-              </View>
-            )}
+            ) : null}
 
             <View style={styles.photoButtonsContainer}>
               <Pressable
@@ -311,10 +301,11 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
+    justifyContent: 'space-between',
   },
   colorOption: {
-    width: '22%',
+    width: '19%',
     aspectRatio: 1,
     borderRadius: 12,
     justifyContent: 'center',
@@ -333,51 +324,33 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 4,
   },
-  photoContainer: {
-    position: 'relative',
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  photoPreview: {
-    width: '100%',
-    height: 240,
-    backgroundColor: '#f0f0f0',
-  },
-  photoActions: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  photoActionButton: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  photoPlaceholder: {
+  photoSelectedContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#f0f0f0',
-    borderRadius: 12,
-    paddingVertical: 40,
+    backgroundColor: '#f0f8ff',
+    borderWidth: 1.5,
+    borderColor: '#2196F3',
+    borderRadius: 10,
+    paddingVertical: 16,
     marginBottom: 16,
-    backgroundColor: '#fafafa',
   },
-  placeholderText: {
+  photoSelectedIcon: {
+    marginBottom: 8,
+  },
+  photoSelectedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  removePhotoLink: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  removePhotoText: {
     fontSize: 13,
-    color: '#999',
-    marginTop: 8,
+    color: '#2196F3',
+    fontWeight: '600',
   },
   photoButtonsContainer: {
     flexDirection: 'row',

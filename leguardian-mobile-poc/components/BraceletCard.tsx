@@ -251,10 +251,20 @@ export const BraceletCard: React.FC<BraceletCardProps> = ({
       {/* Customization Modal */}
       <BraceletCustomizationModal
         isOpen={isCustomizationOpen}
-        onClose={() => setIsCustomizationOpen(false)}
+        onClose={() => {
+          setIsCustomizationOpen(false);
+          setTimeout(() => {
+            onBraceletUpdated?.();
+          }, 300);
+        }}
         braceletId={id}
         braceletName={name}
-        onCustomizationSaved={onBraceletUpdated}
+        onCustomizationSaved={() => {
+          setIsCustomizationOpen(false);
+          setTimeout(() => {
+            onBraceletUpdated?.();
+          }, 300);
+        }}
       />
 
       {/* Edit Bracelet Modal */}

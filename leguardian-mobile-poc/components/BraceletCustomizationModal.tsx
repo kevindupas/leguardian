@@ -11,6 +11,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -59,7 +60,7 @@ export const BraceletCustomizationModal: React.FC<BraceletCustomizationModalProp
           return;
         }
         result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.8,
@@ -71,7 +72,7 @@ export const BraceletCustomizationModal: React.FC<BraceletCustomizationModalProp
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.8,
@@ -94,7 +95,6 @@ export const BraceletCustomizationModal: React.FC<BraceletCustomizationModalProp
         color: selectedColor,
         photoUri: selectedPhoto || undefined,
       });
-      Alert.alert('Succès', 'Bracelet customisé avec succès');
       onCustomizationSaved?.();
       onClose();
     } catch (error) {
@@ -116,120 +116,143 @@ export const BraceletCustomizationModal: React.FC<BraceletCustomizationModalProp
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: '#fff' }}
       >
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose}>
+          <Pressable onPress={onClose} style={({ pressed }) => pressed && { opacity: 0.6 }}>
             <Ionicons name="close" size={28} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Customiser le bracelet</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Personnaliser</Text>
           <View style={{ width: 28 }} />
         </View>
 
-        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
-          {/* Preview */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Preview Section */}
           <View style={styles.previewSection}>
-            <Text style={styles.sectionTitle}>Aperçu</Text>
-            <View style={styles.previewContainer}>
-              <BraceletAvatar
-                braceletName={braceletName}
-                color={selectedColor}
-                photoUri={selectedPhoto || undefined}
-                size="large"
-              />
-              <Text style={styles.previewName}>{braceletName}</Text>
-            </View>
+            <BraceletAvatar
+              braceletName={braceletName}
+              color={selectedColor}
+              photoUri={selectedPhoto || undefined}
+              size="large"
+            />
+            <Text style={styles.previewName}>{braceletName}</Text>
+            <Text style={styles.previewSubtitle}>
+              {selectedPhoto ? 'Avec photo' : 'Avec initiales'}
+            </Text>
           </View>
 
-          {/* Color Picker */}
+          {/* Color Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Couleur</Text>
+            <Text style={styles.sectionTitle}>Couleur du bracelet</Text>
             <View style={styles.colorGrid}>
               {colors.map((color) => (
-                <TouchableOpacity
+                <Pressable
                   key={color}
-                  style={[
+                  onPress={() => setSelectedColor(color)}
+                  style={({ pressed }) => [
                     styles.colorOption,
                     { backgroundColor: color },
                     selectedColor === color && styles.colorOptionSelected,
+                    pressed && styles.colorOptionPressed,
                   ]}
-                  onPress={() => setSelectedColor(color)}
                 >
                   {selectedColor === color && (
-                    <Ionicons name="checkmark" size={20} color="#fff" />
+                    <View style={styles.checkmark}>
+                      <Ionicons name="checkmark-sharp" size={18} color="#fff" />
+                    </View>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </View>
 
-          {/* Photo Picker */}
+          {/* Photo Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Photo</Text>
-            <Text style={styles.photoHint}>
-              Sélectionnez une photo pour personnaliser le bracelet
-            </Text>
+            <Text style={styles.sectionTitle}>Photo de l'enfant</Text>
 
-            {selectedPhoto && (
-              <View style={styles.photoPreviewContainer}>
-                <Image
-                  source={{ uri: selectedPhoto }}
-                  style={styles.photoPreview}
-                />
-                <TouchableOpacity
-                  style={styles.removePhotoButton}
-                  onPress={() => setSelectedPhoto(null)}
-                >
-                  <Ionicons name="close" size={20} color="#f44336" />
-                </TouchableOpacity>
+            {selectedPhoto ? (
+              <View style={styles.photoContainer}>
+                <Image source={{ uri: selectedPhoto }} style={styles.photoPreview} />
+                <View style={styles.photoActions}>
+                  <Pressable
+                    onPress={() => handlePickImage('gallery')}
+                    style={({ pressed }) => [styles.photoActionButton, pressed && { opacity: 0.7 }]}
+                  >
+                    <Ionicons name="pencil" size={18} color="#2196F3" />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedPhoto(null)}
+                    style={({ pressed }) => [styles.photoActionButton, pressed && { opacity: 0.7 }]}
+                  >
+                    <Ionicons name="trash" size={18} color="#f44336" />
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Ionicons name="image-outline" size={48} color="#ccc" />
+                <Text style={styles.placeholderText}>Ajouter une photo</Text>
               </View>
             )}
 
             <View style={styles.photoButtonsContainer}>
-              <TouchableOpacity
-                style={styles.photoButton}
+              <Pressable
                 onPress={() => handlePickImage('camera')}
+                style={({ pressed }) => [styles.photoButton, pressed && { opacity: 0.7 }]}
               >
                 <Ionicons name="camera" size={20} color="#2196F3" />
-                <Text style={styles.photoButtonText}>Photo</Text>
-              </TouchableOpacity>
+                <Text style={styles.photoButtonText}>Caméra</Text>
+              </Pressable>
 
-              <TouchableOpacity
-                style={styles.photoButton}
+              <Pressable
                 onPress={() => handlePickImage('gallery')}
+                style={({ pressed }) => [styles.photoButton, pressed && { opacity: 0.7 }]}
               >
                 <Ionicons name="image" size={20} color="#2196F3" />
                 <Text style={styles.photoButtonText}>Galerie</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
-
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.cancelButton, isLoading && styles.buttonDisabled]}
-              onPress={onClose}
-              disabled={isLoading}
-            >
-              <Text style={styles.cancelButtonText}>Annuler</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.saveButton, isLoading && styles.buttonDisabled]}
-              onPress={handleSaveCustomization}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark" size={20} color="#fff" />
-                  <Text style={styles.saveButtonText}>Sauvegarder</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
         </ScrollView>
+
+        {/* Bottom Actions */}
+        <View style={styles.bottomActions}>
+          <Pressable
+            onPress={onClose}
+            disabled={isLoading}
+            style={({ pressed }) => [
+              styles.cancelButton,
+              pressed && { opacity: 0.7 },
+              isLoading && { opacity: 0.5 },
+            ]}
+          >
+            <Text style={styles.cancelButtonText}>Annuler</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleSaveCustomization}
+            disabled={isLoading}
+            style={({ pressed }) => [
+              styles.saveButton,
+              pressed && { opacity: 0.85 },
+              isLoading && { opacity: 0.5 },
+            ]}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="checkmark" size={18} color="#fff" />
+                <Text style={styles.saveButtonText}>Sauvegarder</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -240,46 +263,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333',
   },
-  container: {
+  scrollView: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
   },
   previewSection: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 32,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    marginBottom: 20,
-  },
-  previewContainer: {
-    alignItems: 'center',
-    marginTop: 15,
+    marginBottom: 24,
   },
   previewName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333',
-    marginTop: 12,
+    marginTop: 16,
+  },
+  previewSubtitle: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 4,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   colorGrid: {
     flexDirection: 'row',
@@ -287,7 +314,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   colorOption: {
-    width: '23%',
+    width: '22%',
     aspectRatio: 1,
     borderRadius: 12,
     justifyContent: 'center',
@@ -298,31 +325,59 @@ const styles = StyleSheet.create({
   colorOptionSelected: {
     borderColor: '#333',
   },
-  photoHint: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 12,
+  colorOptionPressed: {
+    opacity: 0.8,
   },
-  photoPreviewContainer: {
+  checkmark: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 20,
+    padding: 4,
+  },
+  photoContainer: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   photoPreview: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
+    height: 240,
     backgroundColor: '#f0f0f0',
   },
-  removePhotoButton: {
+  photoActions: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  photoActionButton: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 24,
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#f0f0f0',
+    borderRadius: 12,
+    paddingVertical: 40,
+    marginBottom: 16,
+    backgroundColor: '#fafafa',
+  },
+  placeholderText: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 8,
   },
   photoButtonsContainer: {
     flexDirection: 'row',
@@ -335,33 +390,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#f0f7ff',
     borderWidth: 1.5,
     borderColor: '#2196F3',
   },
   photoButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#2196F3',
   },
-  buttonContainer: {
+  bottomActions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 24,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
   cancelButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 10,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#f0f0f0',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButtonText: {
     color: '#333',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   saveButton: {
     flex: 1,
@@ -369,16 +429,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#2196F3',
     alignItems: 'center',
-    flexDirection: 'row',
     justifyContent: 'center',
+    flexDirection: 'row',
     gap: 8,
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

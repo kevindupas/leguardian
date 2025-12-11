@@ -15,9 +15,9 @@ export const BraceletAvatar: React.FC<BraceletAvatarProps> = ({
   size = 'medium',
 }) => {
   const sizeConfig = {
-    small: { container: 40, fontSize: 12 },
-    medium: { container: 60, fontSize: 14 },
-    large: { container: 100, fontSize: 18 },
+    small: { container: 36, fontSize: 11, borderWidth: 2 },
+    medium: { container: 48, fontSize: 13, borderWidth: 2.5 },
+    large: { container: 80, fontSize: 16, borderWidth: 3 },
   };
 
   const config = sizeConfig[size];
@@ -37,7 +37,9 @@ export const BraceletAvatar: React.FC<BraceletAvatarProps> = ({
           width: config.container,
           height: config.container,
           borderRadius: config.container / 2,
-          backgroundColor: color,
+          backgroundColor: photoUri ? undefined : color,
+          borderWidth: config.borderWidth,
+          borderColor: photoUri ? color : 'transparent',
         },
       ]}
     >
@@ -54,7 +56,7 @@ export const BraceletAvatar: React.FC<BraceletAvatarProps> = ({
           ]}
         />
       ) : (
-        <Text style={[styles.initials, { fontSize: config.fontSize }]}>
+        <Text style={[styles.initials, { fontSize: config.fontSize, color: '#fff' }]}>
           {initials || '?'}
         </Text>
       )}
@@ -67,12 +69,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   photo: {
     resizeMode: 'cover',
   },
   initials: {
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

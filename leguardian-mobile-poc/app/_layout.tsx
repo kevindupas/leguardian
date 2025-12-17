@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { configureEcho } from "@laravel/echo-react";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { I18nProvider } from "../contexts/I18nContext";
@@ -45,13 +46,15 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider>
-          <I18nProvider>
-            <AuthProvider>
-              <RootLayoutContent />
-            </AuthProvider>
-          </I18nProvider>
-        </ThemeProvider>
+        <BottomSheetModalProvider>
+          <ThemeProvider>
+            <I18nProvider>
+              <AuthProvider>
+                <RootLayoutContent />
+              </AuthProvider>
+            </I18nProvider>
+          </ThemeProvider>
+        </BottomSheetModalProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

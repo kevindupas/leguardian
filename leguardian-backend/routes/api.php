@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BraceletController;
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\SafetyZoneController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +38,13 @@ Route::prefix('mobile')->middleware('auth:sanctum')->group(function () {
     Route::post('bracelets/{bracelet}/resolve-emergency', [BraceletController::class, 'resolveEmergency']);
     Route::get('bracelets/{bracelet}/events', [BraceletController::class, 'getEvents']);
     Route::post('bracelets/{bracelet}/respond-to-event', [BraceletController::class, 'respondToEvent']);
+
+    // Safety Zones
+    Route::get('bracelets/{bracelet}/zones', [SafetyZoneController::class, 'index']);
+    Route::post('bracelets/{bracelet}/zones', [SafetyZoneController::class, 'store']);
+    Route::get('bracelets/{bracelet}/zones/{zone}', [SafetyZoneController::class, 'show']);
+    Route::put('bracelets/{bracelet}/zones/{zone}', [SafetyZoneController::class, 'update']);
+    Route::delete('bracelets/{bracelet}/zones/{zone}', [SafetyZoneController::class, 'destroy']);
 
     // Events
     Route::get('events', [BraceletController::class, 'getAllEvents']);

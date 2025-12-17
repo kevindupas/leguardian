@@ -382,17 +382,8 @@ class DeviceController extends Controller
 
         $bracelet->update($updateData);
 
-        // Store heartbeat as event if location is provided
-        if ($request->has('latitude') && $request->latitude) {
-            BraceletEvent::create([
-                'bracelet_id' => $bracelet->id,
-                'event_type' => 'heartbeat',
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'accuracy' => $request->accuracy ?? null,
-                'battery_level' => $request->battery_level,
-            ]);
-        }
+        // Don't store heartbeat as event - just update location
+        // This avoids cluttering the timeline with too many heartbeat points
 
         \Log::info('Heartbeat updated', [
             'bracelet_id' => $bracelet->id,

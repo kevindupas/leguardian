@@ -55,6 +55,11 @@ class Bracelet extends Model
         return $this->hasMany(BraceletCommand::class);
     }
 
+    public function safetyZones()
+    {
+        return $this->hasMany(SafetyZone::class);
+    }
+
     // Scopes
     public function scopeActive($query)
     {

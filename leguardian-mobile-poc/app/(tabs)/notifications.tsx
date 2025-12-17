@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -8,15 +8,17 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
-import { eventService, type BraceletEvent } from '../../services/eventService';
-import { braceletService, type Bracelet } from '../../services/braceletService';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useI18n } from '../../contexts/I18nContext';
-import { getColors } from '../../constants/Colors';
+  StatusBar,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
+import { eventService, type BraceletEvent } from "../../services/eventService";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useI18n } from "../../contexts/I18nContext";
+import { getColors } from "../../constants/Colors";
+// Import du nouveau composant
+import { NotificationFilterBottomSheet } from "../../components/NotificationFilterBottomSheet";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -25,95 +27,50 @@ export default function NotificationsScreen() {
   const { t } = useI18n();
   const colors = getColors(isDark);
   const params = useLocalSearchParams();
+
+  // States
   const [events, setEvents] = useState<BraceletEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [respondingId, setRespondingId] = useState<number | null>(null);
-  const [filterType, setFilterType] = useState<'all' | 'arrived' | 'lost' | 'danger'>('all');
-  const [selectedBraceletId, setSelectedBraceletId] = useState<number | null>(null);
-  const [allBracelets, setAllBracelets] = useState<Array<{ id: number; alias: string; unique_code: string }>>([]);
+  const [filterType, setFilterType] = useState<
+    "all" | "arrived" | "lost" | "danger"
+  >("all");
+  const [selectedBraceletId, setSelectedBraceletId] = useState<number | null>(
+    null
+  );
+  const [allBracelets, setAllBracelets] = useState<
+    Array<{ id: number; alias: string; unique_code: string }>
+  >([]);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pending' | 'archives'>('pending');
+  const [activeTab, setActiveTab] = useState<"pending" | "archives">("pending");
 
-  // Configure header with filter button
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={() => setShowFilterModal(true)}
-          style={{ marginRight: 16 }}
-        >
-          <Ionicons
-            name="funnel"
-            size={24}
-            color={colors.white}
-          />
-        </TouchableOpacity>
-      ),
-    });
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  // Update selected bracelet ID when params change
   useEffect(() => {
     if (params.braceletId) {
       setSelectedBraceletId(parseInt(params.braceletId as string));
     }
   }, [params.braceletId]);
 
-  // Fetch events initially and when filters change
   useEffect(() => {
     fetchEvents();
   }, [filterType, selectedBraceletId]);
 
-  // Poll for event updates every 5 seconds
   useEffect(() => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const data = await eventService.getAllEvents();
-        let filteredEvents = (data.data || []).filter((e) => e.event_type !== 'heartbeat');
-
-        // Extract unique bracelets from events
-        const uniqueBracelets = Array.from(
-          new Map(
-            filteredEvents
-              .filter((e) => e.bracelet)
-              .map((e) => [
-                e.bracelet_id,
-                {
-                  id: e.bracelet_id,
-                  alias: e.bracelet?.alias || e.bracelet?.unique_code || 'Bracelet',
-                  unique_code: e.bracelet?.unique_code || '',
-                },
-              ])
-          ).values()
-        );
-        setAllBracelets(uniqueBracelets);
-
-        // Apply filters
-        if (filterType !== 'all') {
-          filteredEvents = filteredEvents.filter((e) => e.event_type === filterType);
-        }
-
-        if (selectedBraceletId !== null) {
-          filteredEvents = filteredEvents.filter((e) => e.bracelet_id === selectedBraceletId);
-        }
-
-        setEvents(filteredEvents);
-      } catch (error) {
-        // Silently fail on polling errors
-        console.log('[NotificationsScreen] Polling error:', error);
-      }
-    }, 5000); // Poll every 5 seconds
-
+    const pollInterval = setInterval(fetchEvents, 5000);
     return () => clearInterval(pollInterval);
   }, [filterType, selectedBraceletId]);
 
   const fetchEvents = async () => {
     try {
       const data = await eventService.getAllEvents();
-      let filteredEvents = (data.data || []).filter((e) => e.event_type !== 'heartbeat');
+      let filteredEvents = (data.data || []).filter(
+        (e) => e.event_type !== "heartbeat"
+      );
 
-      // Extract unique bracelets from events
       const uniqueBracelets = Array.from(
         new Map(
           filteredEvents
@@ -122,27 +79,29 @@ export default function NotificationsScreen() {
               e.bracelet_id,
               {
                 id: e.bracelet_id,
-                alias: e.bracelet?.alias || e.bracelet?.unique_code || 'Bracelet',
-                unique_code: e.bracelet?.unique_code || '',
+                alias:
+                  e.bracelet?.alias || e.bracelet?.unique_code || "Bracelet",
+                unique_code: e.bracelet?.unique_code || "",
               },
             ])
         ).values()
       );
       setAllBracelets(uniqueBracelets);
 
-      // Apply filters
-      if (filterType !== 'all') {
-        filteredEvents = filteredEvents.filter((e) => e.event_type === filterType);
+      if (filterType !== "all") {
+        filteredEvents = filteredEvents.filter(
+          (e) => e.event_type === filterType
+        );
       }
-
       if (selectedBraceletId !== null) {
-        filteredEvents = filteredEvents.filter((e) => e.bracelet_id === selectedBraceletId);
+        filteredEvents = filteredEvents.filter(
+          (e) => e.bracelet_id === selectedBraceletId
+        );
       }
 
       setEvents(filteredEvents);
-    } catch (error: any) {
-      Alert.alert(t('common.error'), t('common.error'));
-      console.error(error);
+    } catch (error) {
+      console.log("Error fetching events:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -156,34 +115,13 @@ export default function NotificationsScreen() {
 
   const handleRespond = async (event: BraceletEvent) => {
     if (!event.bracelet_id) return;
-
     setRespondingId(event.id);
     try {
       await eventService.sendResponse(event.bracelet_id, event.id);
-
-      // Get bracelet name
-      const braceletName = event.bracelet?.alias || event.bracelet?.unique_code || 'Bracelet';
-
-      // Show success toast notification
-      Alert.alert(
-        t('common.success'),
-        `${t('notifications.pingSent')} ${braceletName}`,
-        [{ text: t('common.ok'), onPress: () => {
-          // Refresh events data but stay in pending tab
-          fetchEvents();
-        }}]
-      );
-
-      // Log response action to console (visible in debugger/logs)
-      console.log(`✅ Response sent to bracelet: ${braceletName} (Event #${event.id})`);
-
+      Alert.alert(t("common.success"), t("notifications.pingSent"));
+      fetchEvents();
     } catch (error: any) {
-      Alert.alert(
-        t('common.error'),
-        error.response?.data?.message || t('common.error'),
-        [{ text: t('common.ok') }]
-      );
-      console.error(`❌ Failed to respond to event #${event.id}:`, error);
+      Alert.alert(t("common.error"), error.message);
     } finally {
       setRespondingId(null);
     }
@@ -191,25 +129,23 @@ export default function NotificationsScreen() {
 
   const handleViewOnMap = (event: BraceletEvent) => {
     if (!event.latitude || !event.longitude) {
-      Alert.alert(t('common.error'), t('eventDetails.noLocation'));
+      Alert.alert(t("common.error"), t("eventDetails.noLocation"));
       return;
     }
-    // Navigate to custom notification map page
     router.push({
-      pathname: '/notification-map',
-      params: {
-        eventId: event.id.toString(),
-      },
+      pathname: "/(tabs)/map-view",
+      params: { braceletId: event.bracelet_id.toString() },
     });
   };
 
+  // Helpers UI
   const getEventTypeColor = (type: string): string => {
     switch (type) {
-      case 'danger':
+      case "danger":
         return colors.danger;
-      case 'lost':
+      case "lost":
         return colors.warning;
-      case 'arrived':
+      case "arrived":
         return colors.success;
       default:
         return colors.primary;
@@ -218,12 +154,12 @@ export default function NotificationsScreen() {
 
   const getEventTypeLabel = (type: string): string => {
     switch (type) {
-      case 'danger':
-        return t('eventTypes.danger');
-      case 'lost':
-        return t('eventTypes.lost');
-      case 'arrived':
-        return t('eventTypes.arrived');
+      case "danger":
+        return t("eventTypes.danger");
+      case "lost":
+        return t("eventTypes.lost");
+      case "arrived":
+        return t("eventTypes.arrived");
       default:
         return type;
     }
@@ -231,502 +167,424 @@ export default function NotificationsScreen() {
 
   const getEventTypeIcon = (type: string): string => {
     switch (type) {
-      case 'danger':
-        return 'alert-circle';
-      case 'lost':
-        return 'help-circle';
-      case 'arrived':
-        return 'checkmark-circle';
+      case "danger":
+        return "alert-circle";
+      case "lost":
+        return "help-circle";
+      case "arrived":
+        return "location";
       default:
-        return 'information-circle';
+        return "notifications";
     }
   };
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
+    const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
 
-    if (diffMins < 1) return 'À l\'instant';
-    if (diffMins < 60) return `Il y a ${diffMins}m`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays < 7) return `Il y a ${diffDays}j`;
-
-    return date.toLocaleDateString('fr-FR');
+    if (diffMins < 1) return "À l'instant";
+    if (diffMins < 60) return `${diffMins} min`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)} h`;
+    return date.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+    });
   };
 
-  const renderEvent = ({ item }: { item: BraceletEvent }) => (
-    <View style={[styles.eventCard, { backgroundColor: colors.white, borderLeftColor: getEventTypeColor(item.event_type) }]}>
-      <View style={styles.eventHeader}>
-        <View style={styles.eventTitleSection}>
-          <View
-            style={[
-              styles.eventTypeIcon,
-              { backgroundColor: getEventTypeColor(item.event_type) + '20' },
-            ]}
-          >
+  const renderEvent = ({ item }: { item: BraceletEvent }) => {
+    const color = getEventTypeColor(item.event_type);
+
+    return (
+      <View style={[styles.card, { backgroundColor: colors.white }]}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconBox, { backgroundColor: color + "15" }]}>
             <Ionicons
               name={getEventTypeIcon(item.event_type) as any}
               size={20}
-              color={getEventTypeColor(item.event_type)}
+              color={color}
             />
           </View>
-          <View style={styles.eventInfo}>
-            <Text style={[styles.eventType, { color: colors.textPrimary }]}>{getEventTypeLabel(item.event_type)}</Text>
-            <Text style={[styles.braceletName, { color: colors.textSecondary }]}>
-              {item.bracelet?.alias || item.bracelet?.unique_code || 'Bracelet'}
+
+          <View style={styles.headerTexts}>
+            <View style={styles.titleRow}>
+              <Text style={[styles.eventType, { color: colors.textPrimary }]}>
+                {getEventTypeLabel(item.event_type)}
+              </Text>
+              <Text style={[styles.timeText, { color: colors.textSecondary }]}>
+                {formatDate(item.created_at)}
+              </Text>
+            </View>
+            <Text
+              style={[styles.braceletName, { color: colors.textSecondary }]}
+            >
+              {item.bracelet?.alias ||
+                item.bracelet?.unique_code ||
+                "Appareil inconnu"}
             </Text>
-            <Text style={[styles.eventTime, { color: colors.textSecondary }]}>{formatDate(item.created_at)}</Text>
           </View>
         </View>
-      </View>
 
-      {/* Event Details */}
-      <View style={styles.eventDetails}>
-        {item.latitude !== null && item.latitude !== undefined && item.longitude !== null && item.longitude !== undefined && (
-          <View style={styles.detailRow}>
-            <Ionicons name="location" size={14} color={colors.primary} />
-            <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-              {parseFloat(item.latitude as any).toFixed(4)}, {parseFloat(item.longitude as any).toFixed(4)}
-            </Text>
-          </View>
-        )}
-        {item.battery_level !== undefined && (
-          <View style={styles.detailRow}>
-            <Ionicons name="battery-half" size={14} color={colors.warning} />
-            <Text style={[styles.detailText, { color: colors.textSecondary }]}>Batterie: {item.battery_level}%</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        {item.latitude && item.longitude && (
-          <TouchableOpacity
-            style={[styles.mapButton, { borderColor: colors.primary, backgroundColor: '#EBF5FB' }]}
-            onPress={() => handleViewOnMap(item)}
-          >
-            <Ionicons name="map" size={16} color={colors.primary} />
-            <Text style={[styles.mapButtonText, { color: colors.primary }]}>{t('notifications.viewOnMap')}</Text>
-          </TouchableOpacity>
-        )}
-        {!item.resolved && (
-          <TouchableOpacity
-            style={[styles.respondButton, { backgroundColor: colors.success }, respondingId === item.id && styles.respondButtonLoading]}
-            onPress={() => handleRespond(item)}
-            disabled={respondingId === item.id}
-          >
-            {respondingId === item.id ? (
-              <ActivityIndicator color={colors.white} size="small" />
-            ) : (
-              <>
-                <Ionicons name="send" size={16} color={colors.white} />
-                <Text style={[styles.respondButtonText, { color: colors.white }]}>{t('notifications.respond')}</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.lightBg }]} edges={['left', 'right']}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View
+          style={[styles.detailsContainer, { backgroundColor: colors.lightBg }]}
+        >
+          {item.latitude && (
+            <View style={styles.detailItem}>
+              <Ionicons
+                name="navigate-outline"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={[styles.detailText, { color: colors.textSecondary }]}
+              >
+                {parseFloat(item.latitude as any).toFixed(4)},{" "}
+                {parseFloat(item.longitude as any).toFixed(4)}
+              </Text>
+            </View>
+          )}
+          {item.battery_level !== undefined && (
+            <View style={styles.detailItem}>
+              <Ionicons
+                name="battery-half"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={[styles.detailText, { color: colors.textSecondary }]}
+              >
+                {item.battery_level}%
+              </Text>
+            </View>
+          )}
         </View>
-      </SafeAreaView>
+
+        <View style={[styles.cardActions, { borderTopColor: colors.lightBg }]}>
+          {item.latitude && (
+            <TouchableOpacity
+              style={[
+                styles.actionBtnSecondary,
+                { borderColor: colors.mediumBg },
+              ]}
+              onPress={() => handleViewOnMap(item)}
+            >
+              <Ionicons
+                name="map-outline"
+                size={16}
+                color={colors.textPrimary}
+              />
+              <Text
+                style={[styles.actionBtnText, { color: colors.textPrimary }]}
+              >
+                Carte
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {!item.resolved && (
+            <TouchableOpacity
+              style={[
+                styles.actionBtnPrimary,
+                { backgroundColor: colors.primary },
+              ]}
+              onPress={() => handleRespond(item)}
+              disabled={respondingId === item.id}
+            >
+              {respondingId === item.id ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-done" size={16} color="white" />
+                  <Text
+                    style={{ color: "white", fontWeight: "600", marginLeft: 6 }}
+                  >
+                    Répondre
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
     );
-  }
+  };
 
   const pendingEvents = events.filter((e) => !e.resolved);
   const resolvedEvents = events.filter((e) => e.resolved);
-  const displayedEvents = activeTab === 'pending' ? pendingEvents : resolvedEvents;
+  const displayedEvents =
+    activeTab === "pending" ? pendingEvents : resolvedEvents;
+
+  if (loading) {
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.lightBg }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.lightBg }]} edges={['left', 'right']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.lightBg }]}
+      edges={["top", "left", "right"]}
+    >
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {t("notifications.title")}
+        </Text>
+        <TouchableOpacity
+          style={[styles.filterBtn, { backgroundColor: colors.white }]}
+          onPress={() => setShowFilterModal(true)}
+        >
+          <Ionicons
+            name={
+              filterType === "all" && selectedBraceletId === null
+                ? "filter-outline"
+                : "filter"
+            }
+            size={22}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* TABS */}
+      <View style={styles.tabWrapper}>
+        <View
+          style={[
+            styles.tabContainer,
+            { backgroundColor: colors.mediumBg + "40" },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.tabItem,
+              activeTab === "pending" && styles.tabItemActive,
+            ]}
+            onPress={() => setActiveTab("pending")}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "pending"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              En cours ({pendingEvents.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tabItem,
+              activeTab === "archives" && styles.tabItemActive,
+            ]}
+            onPress={() => setActiveTab("archives")}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "archives"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              Archives
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* LISTE */}
       <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
-        {/* Header with Tabs */}
-        <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.mediumBg }]}>
-          <View>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t('notifications.title')}</Text>
-          </View>
-        </View>
-
-        {/* Tab Navigation */}
-        <View style={[styles.tabContainer, { backgroundColor: colors.white, borderBottomColor: colors.mediumBg }]}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'pending' && { ...styles.tabActive, borderBottomColor: colors.primary }]}
-            onPress={() => setActiveTab('pending')}
-          >
-            <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'pending' && { ...styles.tabTextActive, color: colors.primary }]}>
-              {t('notifications.unresolved')} ({pendingEvents.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'archives' && { ...styles.tabActive, borderBottomColor: colors.primary }]}
-            onPress={() => setActiveTab('archives')}
-          >
-            <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'archives' && { ...styles.tabTextActive, color: colors.primary }]}>
-              {t('notifications.archives')} ({resolvedEvents.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Events List */}
         {displayedEvents.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="notifications-off" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {activeTab === 'pending' ? t('notifications.noUnresolved') : t('notifications.noArchives')}
+            <View
+              style={[
+                styles.emptyIconCircle,
+                { backgroundColor: colors.white },
+              ]}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={48}
+                color={colors.textSecondary}
+              />
+            </View>
+            <Text style={[styles.emptyText, { color: colors.textPrimary }]}>
+              {activeTab === "pending" ? "Tout est calme" : "Aucune archive"}
             </Text>
-            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-              {activeTab === 'pending'
-                ? t('notifications.alertsHere')
-                : t('notifications.respondedHere')}
+            <Text
+              style={[styles.emptySubtext, { color: colors.textSecondary }]}
+            >
+              {activeTab === "pending"
+                ? "Vous n'avez aucune notification non lue."
+                : "L'historique des notifications est vide."}
             </Text>
           </View>
         ) : (
-          <View style={styles.eventsList}>
-            {displayedEvents.map((event, index) => (
-              <View key={event.id}>
-                {renderEvent({ item: event } as any)}
-              </View>
-            ))}
-          </View>
+          displayedEvents.map((event) => (
+            <View key={event.id} style={{ marginBottom: 16 }}>
+              {renderEvent({ item: event })}
+            </View>
+          ))
         )}
       </ScrollView>
 
-      {/* Filter Modal */}
-      {showFilterModal && (
-        <>
-          {/* Backdrop */}
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            onPress={() => setShowFilterModal(false)}
-            activeOpacity={0.5}
-          />
-
-          {/* Modal Content */}
-          <View style={[styles.filterModal, { backgroundColor: colors.white }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.mediumBg }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('map.filterEvents')}</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-              {/* Event Type Section */}
-              <View style={styles.filterSection}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('map.eventType')}</Text>
-                {(['all', 'danger', 'lost', 'arrived'] as const).map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.filterOption,
-                      { backgroundColor: colors.lightBg, borderColor: colors.mediumBg },
-                      filterType === type && { ...styles.filterOptionActive, backgroundColor: '#EBF5FB', borderColor: colors.primary },
-                    ]}
-                    onPress={() => setFilterType(type)}
-                  >
-                    <Text style={[
-                      styles.filterOptionText,
-                      { color: colors.textSecondary },
-                      filterType === type && { ...styles.filterOptionTextActive, color: colors.primary },
-                    ]}>
-                      {type === 'all' ? t('map.allTypes') : getEventTypeLabel(type)}
-                    </Text>
-                    {filterType === type && (
-                      <Ionicons name="checkmark" size={20} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Bracelet Section */}
-              {allBracelets.length > 0 && (
-                <View style={styles.filterSection}>
-                  <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('map.bracelets')}</Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterOption,
-                      { backgroundColor: colors.lightBg, borderColor: colors.mediumBg },
-                      selectedBraceletId === null && { ...styles.filterOptionActive, backgroundColor: '#EBF5FB', borderColor: colors.primary },
-                    ]}
-                    onPress={() => setSelectedBraceletId(null)}
-                  >
-                    <Text style={[
-                      styles.filterOptionText,
-                      { color: colors.textSecondary },
-                      selectedBraceletId === null && { ...styles.filterOptionTextActive, color: colors.primary },
-                    ]}>
-                      {t('map.allBracelets')}
-                    </Text>
-                    {selectedBraceletId === null && (
-                      <Ionicons name="checkmark" size={20} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                  {allBracelets.map((bracelet) => (
-                    <TouchableOpacity
-                      key={bracelet.id}
-                      style={[
-                        styles.filterOption,
-                        selectedBraceletId === bracelet.id && styles.filterOptionActive,
-                      ]}
-                      onPress={() => setSelectedBraceletId(bracelet.id)}
-                    >
-                      <View style={styles.braceletFilterContent}>
-                        <Ionicons name="watch" size={16} color={selectedBraceletId === bracelet.id ? colors.primary : colors.textSecondary} />
-                        <Text style={[
-                          styles.filterOptionText,
-                          selectedBraceletId === bracelet.id && styles.filterOptionTextActive,
-                        ]}>
-                          {bracelet.alias}
-                        </Text>
-                      </View>
-                      {selectedBraceletId === bracelet.id && (
-                        <Ionicons name="checkmark" size={20} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </>
-      )}
+      {/* NOUVEAU COMPOSANT BOTTOM SHEET */}
+      <NotificationFilterBottomSheet
+        isVisible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        filterType={filterType}
+        onFilterTypeChange={setFilterType}
+        selectedBraceletId={selectedBraceletId}
+        onBraceletChange={setSelectedBraceletId}
+        bracelets={allBracelets}
+        isDark={isDark}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 14,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    alignItems: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    fontWeight: '700',
-  },
-  modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    zIndex: 100,
-  },
-  filterModal: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: '80%',
-    zIndex: 101,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
+    paddingTop: 10,
+    paddingBottom: 16,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  modalContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 24,
-  },
-  filterSection: {
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 14,
-  },
-  filterOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1.5,
-  },
-  filterOptionActive: {
-  },
-  filterOptionText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  filterOptionTextActive: {
-    fontWeight: '700',
-  },
-  braceletFilterContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  eventsList: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  eventCard: {
-    borderRadius: 14,
-    borderLeftWidth: 4,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: '#000',
+  headerTitle: { fontSize: 28, fontWeight: "800" },
+  filterBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
     elevation: 2,
   },
-  eventHeader: {
-    marginBottom: 10,
+  tabWrapper: { paddingHorizontal: 20, marginBottom: 16 },
+  tabContainer: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 4,
+    height: 44,
   },
-  eventTitleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  eventTypeIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  eventInfo: {
+  tabItem: {
     flex: 1,
-  },
-  eventType: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  braceletName: {
-    fontSize: 13,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  eventTime: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  eventDetails: {
-    marginBottom: 10,
-    paddingLeft: 52,
-    gap: 6,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detailText: {
-    fontSize: 12,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingLeft: 52,
-  },
-  mapButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
-  mapButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  respondButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 10,
   },
-  respondButtonLoading: {
-    opacity: 0.7,
+  tabItemActive: {
+    backgroundColor: "white",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  respondButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+  tabText: { fontSize: 13, fontWeight: "600" },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  card: {
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
+  cardHeader: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTexts: { flex: 1, justifyContent: "center" },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  eventType: { fontSize: 16, fontWeight: "700" },
+  timeText: { fontSize: 12, fontWeight: "500" },
+  braceletName: { fontSize: 13, marginTop: 2 },
+  detailsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  detailItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  detailText: { fontSize: 12, fontWeight: "500" },
+  cardActions: { flexDirection: "row", gap: 10 },
+  actionBtnSecondary: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionBtnPrimary: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  actionBtnText: { fontSize: 13, fontWeight: "600" },
   emptyContainer: {
-    paddingVertical: 60,
-    alignItems: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 60,
   },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 16,
-    marginBottom: 8,
-    fontWeight: '600',
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
+  emptyText: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
   emptySubtext: {
-    fontSize: 13,
+    fontSize: 14,
+    textAlign: "center",
+    maxWidth: "70%",
+    lineHeight: 20,
   },
 });

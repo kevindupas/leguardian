@@ -16,6 +16,8 @@ import { CameraView, Camera } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { braceletService } from "../services/braceletService";
 import { BraceletCustomizationModal } from "./BraceletCustomizationModal";
+import { useTheme } from "../contexts/ThemeContext";
+import { getColors } from "../constants/Colors";
 
 interface AddBraceletBottomSheetProps {
   onBraceletAdded: () => void;
@@ -23,34 +25,42 @@ interface AddBraceletBottomSheetProps {
   onClose: () => void;
 }
 
+const SCANNER_SIZE = 250;
+
 export const AddBraceletBottomSheet = ({
   onBraceletAdded,
   isOpen,
   onClose,
 }: AddBraceletBottomSheetProps) => {
+  const { isDark } = useTheme();
+  const colors = getColors(isDark);
+
   const [showManualInput, setShowManualInput] = useState(false);
-  const [qrInput, setQrInput] = useState("");
   const [uniqueCode, setUniqueCode] = useState("");
+  const [scannedCode, setScannedCode] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<
     "checking" | "granted" | "denied"
   >("checking");
+
   const [showAliasInput, setShowAliasInput] = useState(false);
   const [alias, setAlias] = useState("");
-  const [scannedCode, setScannedCode] = useState("");
+
   const [showCustomization, setShowCustomization] = useState(false);
-  const [justAddedBraceletId, setJustAddedBraceletId] = useState<number | null>(null);
+  const [justAddedBraceletId, setJustAddedBraceletId] = useState<number | null>(
+    null
+  );
 
   const resetForm = useCallback(() => {
     setScanning(false);
     setShowManualInput(false);
-    setQrInput("");
     setUniqueCode("");
+    setScannedCode("");
     setCameraPermission("checking");
     setShowAliasInput(false);
     setAlias("");
-    setScannedCode("");
     onClose();
   }, [onClose]);
 
@@ -66,56 +76,40 @@ export const AddBraceletBottomSheet = ({
   };
 
   const handleStartScanning = async () => {
+    setScannedCode("");
     const granted = await requestCameraPermission();
     if (granted) {
       setScanning(true);
     } else {
-      Alert.alert(
-        "Permission refusée",
-        "Vous devez autoriser l'accès à la caméra pour scanner les QR codes"
-      );
+      Alert.alert("Permission", "Accès caméra requis.");
     }
   };
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
     if (scanning && data) {
       setScanning(false);
-      setQrInput(data);
+      setScannedCode(data);
     }
   };
 
-  const handleQRScan = () => {
-    const code = qrInput.trim();
-    if (!code) {
-      Alert.alert("Erreur", "Veuillez scanner ou entrer un code QR");
+  const handleProceedToAlias = () => {
+    const code = showManualInput ? uniqueCode : scannedCode;
+    if (!code.trim()) {
+      Alert.alert("Erreur", "Aucun code valide.");
       return;
     }
-
-    setScannedCode(code);
     setShowAliasInput(true);
   };
 
-  const handleManualRegister = () => {
-    const code = uniqueCode.trim();
-    if (!code) {
-      Alert.alert("Erreur", "Veuillez entrer un code unique");
-      return;
-    }
+  const handleAddBracelet = async () => {
+    const finalCode = showManualInput ? uniqueCode : scannedCode;
 
-    setScannedCode(code);
-    setShowAliasInput(true);
-  };
-
-  const handleAddBraceletWithAlias = async () => {
-    if (!scannedCode) {
-      Alert.alert("Erreur", "Code invalide");
-      return;
-    }
+    if (!finalCode) return;
 
     setSubmitting(true);
     try {
       const response: any = await braceletService.registerBracelet(
-        scannedCode.toUpperCase(),
+        finalCode.toUpperCase(),
         alias || undefined
       );
       const braceletId = response?.id;
@@ -132,7 +126,6 @@ export const AddBraceletBottomSheet = ({
   };
 
   const handleCustomizationComplete = () => {
-    Alert.alert("Succès", `Bracelet enregistré avec succès`);
     resetForm();
     setShowCustomization(false);
     onBraceletAdded();
@@ -143,82 +136,138 @@ export const AddBraceletBottomSheet = ({
       visible={isOpen}
       onRequestClose={onClose}
       animationType="slide"
-      presentationStyle="formSheet"
+      presentationStyle="pageSheet"
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: colors.white }}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={28} color="#333" />
+        {/* HEADER */}
+        <View style={[styles.header, { borderBottomColor: colors.lightBg }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+            Nouveau Bracelet
+          </Text>
+          <TouchableOpacity
+            onPress={onClose}
+            style={[styles.closeButton, { backgroundColor: colors.lightBg }]}
+          >
+            <Ionicons name="close" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ajouter un bracelet</Text>
-          <View style={{ width: 28 }} />
         </View>
 
         <ScrollView
           style={styles.container}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}
         >
           {showAliasInput ? (
-            /* Alias Input Screen */
-            <View>
-              <Text style={styles.subtitle}>Donner un nom au bracelet</Text>
-              <Text style={styles.hint}>Code: {scannedCode}</Text>
-              <TextInput
-                style={styles.aliasInput}
-                placeholder="Ex: Bracelet grand-mère"
-                value={alias}
-                onChangeText={setAlias}
-                maxLength={50}
-              />
-              <Text style={styles.hint}>
-                Vous pouvez laisser vide pour utiliser le code automatiquement
+            /* --- ETAPE 2: NOM (ALIAS) --- */
+            <View style={styles.stepContainer}>
+              <View
+                style={[
+                  styles.iconCircleBig,
+                  { backgroundColor: colors.primary + "15" },
+                ]}
+              >
+                <Ionicons name="pricetag" size={32} color={colors.primary} />
+              </View>
+
+              <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
+                Donnez-lui un nom
+              </Text>
+              <Text
+                style={[styles.stepSubtitle, { color: colors.textSecondary }]}
+              >
+                Code :{" "}
+                <Text style={{ fontWeight: "700", color: colors.textPrimary }}>
+                  {showManualInput ? uniqueCode : scannedCode}
+                </Text>
               </Text>
 
-              <TouchableOpacity
-                style={styles.cancelAliasButton}
-                onPress={() => setShowAliasInput(false)}
-              >
-                <Text style={styles.cancelAliasButtonText}>Retour</Text>
-              </TouchableOpacity>
+              <View style={styles.inputWrapper}>
+                <Text
+                  style={[styles.inputLabel, { color: colors.textSecondary }]}
+                >
+                  Nom (Optionnel)
+                </Text>
+                <TextInput
+                  style={[
+                    styles.modernInput,
+                    {
+                      backgroundColor: colors.lightBg,
+                      color: colors.textPrimary,
+                    },
+                  ]}
+                  placeholder="Ex: Montre de Tom"
+                  placeholderTextColor={colors.textSecondary + "80"}
+                  value={alias}
+                  onChangeText={setAlias}
+                  maxLength={50}
+                  autoFocus
+                />
+              </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  submitting && styles.submitButtonDisabled,
-                ]}
-                onPress={handleAddBraceletWithAlias}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Text style={styles.submitButtonText}>
-                      Ajouter le bracelet
-                    </Text>
-                    <Ionicons name="checkmark" size={20} color="#fff" />
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.secondaryButton,
+                    { backgroundColor: colors.lightBg },
+                  ]}
+                  onPress={() => setShowAliasInput(false)}
+                >
+                  <Text
+                    style={[
+                      styles.secondaryButtonText,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    Retour
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.primaryButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: submitting ? 0.7 : 1,
+                    },
+                  ]}
+                  onPress={handleAddBracelet}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Terminer</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
-            /* Mode Selection Screen */
-            <>
-              <Text style={styles.subtitle}>
-                Sélectionnez un mode d'enregistrement
+            /* --- ETAPE 1: CHOIX DU MODE + SCANNER --- */
+            <View style={styles.stepContainer}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.textPrimary }]}
+              >
+                Méthode de connexion
               </Text>
 
-              {/* Mode Selection Cards */}
-              <View style={styles.modeSelection}>
-                {/* QR Code Mode */}
+              {/* CARTES DE SÉLECTION */}
+              <View style={styles.modeGrid}>
+                {/* Carte QR Code */}
                 <TouchableOpacity
                   style={[
                     styles.modeCard,
-                    !showManualInput && styles.modeCardActive,
+                    {
+                      backgroundColor: !showManualInput
+                        ? colors.primary + "10"
+                        : colors.lightBg,
+                      borderColor: !showManualInput
+                        ? colors.primary
+                        : "transparent",
+                      borderWidth: 2,
+                    },
                   ]}
                   onPress={() => {
                     setShowManualInput(false);
@@ -228,33 +277,48 @@ export const AddBraceletBottomSheet = ({
                   <View
                     style={[
                       styles.modeIcon,
-                      !showManualInput && styles.modeIconActive,
+                      {
+                        backgroundColor: !showManualInput
+                          ? colors.primary
+                          : colors.white,
+                      },
                     ]}
                   >
                     <Ionicons
                       name="qr-code"
                       size={24}
-                      color={!showManualInput ? "#fff" : "#333"}
+                      color={
+                        !showManualInput ? colors.white : colors.textSecondary
+                      }
                     />
                   </View>
                   <Text
                     style={[
-                      styles.modeTitle,
-                      !showManualInput && styles.modeTitleActive,
+                      styles.modeCardTitle,
+                      {
+                        color: !showManualInput
+                          ? colors.primary
+                          : colors.textSecondary,
+                      },
                     ]}
                   >
-                    QR Code
-                  </Text>
-                  <Text style={styles.modeDescription}>
-                    Scanner le QR code du bracelet
+                    Scanner QR
                   </Text>
                 </TouchableOpacity>
 
-                {/* Manual Mode */}
+                {/* Carte Manuel */}
                 <TouchableOpacity
                   style={[
                     styles.modeCard,
-                    showManualInput && styles.modeCardActive,
+                    {
+                      backgroundColor: showManualInput
+                        ? colors.primary + "10"
+                        : colors.lightBg,
+                      borderColor: showManualInput
+                        ? colors.primary
+                        : "transparent",
+                      borderWidth: 2,
+                    },
                   ]}
                   onPress={() => {
                     setShowManualInput(true);
@@ -264,160 +328,264 @@ export const AddBraceletBottomSheet = ({
                   <View
                     style={[
                       styles.modeIcon,
-                      showManualInput && styles.modeIconActive,
+                      {
+                        backgroundColor: showManualInput
+                          ? colors.primary
+                          : colors.white,
+                      },
                     ]}
                   >
                     <Ionicons
                       name="keypad"
                       size={24}
-                      color={showManualInput ? "#fff" : "#333"}
+                      color={
+                        showManualInput ? colors.white : colors.textSecondary
+                      }
                     />
                   </View>
                   <Text
                     style={[
-                      styles.modeTitle,
-                      showManualInput && styles.modeTitleActive,
+                      styles.modeCardTitle,
+                      {
+                        color: showManualInput
+                          ? colors.primary
+                          : colors.textSecondary,
+                      },
                     ]}
                   >
-                    Manuel
-                  </Text>
-                  <Text style={styles.modeDescription}>
-                    Entrer le code manuellement
+                    Code Manuel
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              {scanning && cameraPermission === "granted" ? (
-                /* Camera Scanner View */
-                <View style={styles.scannerContainer}>
-                  <CameraView
-                    style={styles.camera}
-                    facing="back"
-                    onBarcodeScanned={handleBarCodeScanned}
-                    barcodeScannerSettings={{
-                      barcodeTypes: ["qr"],
-                    }}
-                  >
-                    <View style={styles.scannerOverlay}>
-                      <View style={styles.scannerFrame} />
-                      <Text style={styles.scannerText}>
-                        Positionnez le QR code dans le cadre
-                      </Text>
+              {/* CONTENU VARIABLE SELON LE MODE */}
+              {!showManualInput ? (
+                /* --- MODE SCANNER --- */
+                <View style={styles.scannerSection}>
+                  {scanning && cameraPermission === "granted" ? (
+                    <>
+                      {/* CAMÉRA CARRÉE */}
+                      <View style={styles.cameraContainer}>
+                        <CameraView
+                          style={StyleSheet.absoluteFill}
+                          facing="back"
+                          onBarcodeScanned={handleBarCodeScanned}
+                          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                        />
+                        {/* Overlay de visée */}
+                        <View style={styles.maskOverlay}>
+                          <View style={styles.maskRow} />
+                          <View style={styles.maskCenter}>
+                            <View style={styles.maskCol} />
+                            <View style={styles.scanWindow}>
+                              <View style={[styles.corner, styles.tl]} />
+                              <View style={[styles.corner, styles.tr]} />
+                              <View style={[styles.corner, styles.bl]} />
+                              <View style={[styles.corner, styles.br]} />
+                            </View>
+                            <View style={styles.maskCol} />
+                          </View>
+                          <View style={styles.maskRow} />
+                        </View>
+                      </View>
+
+                      {/* BOUTON ANNULER ROUGE (EN DEHORS) */}
+                      <TouchableOpacity
+                        onPress={() => setScanning(false)}
+                        style={[
+                          styles.cancelScanButton,
+                          {
+                            backgroundColor: colors.danger + "15",
+                            borderColor: colors.danger,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.cancelScanText,
+                            { color: colors.danger },
+                          ]}
+                        >
+                          Annuler le scan
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    /* RÉSULTAT OU ATTENTE */
+                    <View
+                      style={[
+                        styles.placeholderBox,
+                        {
+                          backgroundColor: colors.lightBg,
+                          borderColor: colors.mediumBg,
+                        },
+                      ]}
+                    >
+                      {scannedCode ? (
+                        <View style={{ alignItems: "center" }}>
+                          <View
+                            style={[
+                              styles.successCircle,
+                              { backgroundColor: colors.success + "20" },
+                            ]}
+                          >
+                            <Ionicons
+                              name="checkmark"
+                              size={40}
+                              color={colors.success}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.codeLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Code détecté
+                          </Text>
+                          <Text
+                            style={[
+                              styles.codeValue,
+                              { color: colors.textPrimary },
+                            ]}
+                          >
+                            {scannedCode}
+                          </Text>
+
+                          <TouchableOpacity
+                            onPress={handleStartScanning}
+                            style={styles.redoButton}
+                          >
+                            <Ionicons
+                              name="refresh"
+                              size={16}
+                              color={colors.primary}
+                            />
+                            <Text
+                              style={[
+                                styles.redoText,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Scanner à nouveau
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View style={{ alignItems: "center" }}>
+                          <Ionicons
+                            name="scan-outline"
+                            size={48}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={{
+                              color: colors.textSecondary,
+                              marginTop: 10,
+                            }}
+                          >
+                            En attente de scan...
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  </CameraView>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => setScanning(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>Annuler</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : scanning && cameraPermission === "denied" ? (
-                /* Permission Denied View */
-                <View style={styles.permissionContainer}>
-                  <Ionicons name="camera" size={64} color="#f44336" />
-                  <Text style={styles.permissionDeniedText}>
-                    Permission caméra refusée
-                  </Text>
-                  <Text style={styles.permissionDeniedSubtext}>
-                    Veuillez autoriser l'accès à la caméra dans vos paramètres
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.permissionButton}
-                    onPress={() => setScanning(false)}
-                  >
-                    <Text style={styles.permissionButtonText}>Fermer</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : !showManualInput ? (
-                /* QR Code Mode Form */
-                <View style={styles.formContainer}>
-                  <Text style={styles.formLabel}>Scanner le QR Code</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Le code apparaîtra ici..."
-                    value={qrInput}
-                    onChangeText={setQrInput}
-                    autoCapitalize="characters"
-                    editable={false}
-                  />
-                  <Text style={styles.formHint}>
-                    Le QR code se trouve sur le bracelet ou son emballage
-                  </Text>
+                  )}
 
-                  <TouchableOpacity
-                    style={styles.scanButton}
-                    onPress={handleStartScanning}
-                  >
-                    <Ionicons name="camera" size={20} color="#fff" />
-                    <Text style={styles.scanButtonText}>
-                      Commencer à scanner
-                    </Text>
-                  </TouchableOpacity>
+                  {!scanning && !scannedCode && (
+                    <TouchableOpacity
+                      style={[
+                        styles.primaryButton,
+                        { backgroundColor: colors.primary, marginTop: 20 },
+                      ]}
+                      onPress={handleStartScanning}
+                    >
+                      <Ionicons
+                        name="camera"
+                        size={20}
+                        color="#fff"
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text style={styles.primaryButtonText}>
+                        Ouvrir la caméra
+                      </Text>
+                    </TouchableOpacity>
+                  )}
 
-                  <TouchableOpacity
-                    style={[
-                      styles.submitButton,
-                      (!qrInput.trim() || submitting) &&
-                        styles.submitButtonDisabled,
-                    ]}
-                    onPress={handleQRScan}
-                    disabled={!qrInput.trim() || submitting}
-                  >
-                    {submitting ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Text style={styles.submitButtonText}>Suivant</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#fff" />
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  {!scanning && scannedCode !== "" && (
+                    <TouchableOpacity
+                      style={[
+                        styles.primaryButton,
+                        { backgroundColor: colors.primary, marginTop: 20 },
+                      ]}
+                      onPress={handleProceedToAlias}
+                    >
+                      <Text style={styles.primaryButtonText}>Continuer</Text>
+                      <Ionicons
+                        name="arrow-forward"
+                        size={20}
+                        color="#fff"
+                        style={{ marginLeft: 8 }}
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
-                /* Manual Mode Form */
-                <View style={styles.formContainer}>
-                  <Text style={styles.formLabel}>Code unique du bracelet</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="ex: BR001ABC"
-                    value={uniqueCode}
-                    onChangeText={(text) => setUniqueCode(text.toUpperCase())}
-                    autoCapitalize="characters"
-                    maxLength={20}
-                  />
-                  <Text style={styles.formHint}>
-                    Entrez le code unique à 12 caractères du bracelet
-                  </Text>
-                  <Text style={styles.formHint}>
-                    Le code se trouve à l'arrière du bracelet ou sur l'emballage
-                  </Text>
+                /* --- MODE MANUEL --- */
+                <View style={styles.manualSection}>
+                  <View style={styles.inputWrapper}>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Identifiant Unique (UID)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.modernInput,
+                        {
+                          backgroundColor: colors.lightBg,
+                          color: colors.textPrimary,
+                        },
+                      ]}
+                      placeholder="Ex: BR-1234-ABCD"
+                      placeholderTextColor={colors.textSecondary + "80"}
+                      value={uniqueCode}
+                      onChangeText={(text) => setUniqueCode(text.toUpperCase())}
+                      autoCapitalize="characters"
+                      maxLength={20}
+                    />
+                  </View>
 
                   <TouchableOpacity
                     style={[
-                      styles.submitButton,
-                      (!uniqueCode.trim() || submitting) &&
-                        styles.submitButtonDisabled,
+                      styles.primaryButton,
+                      {
+                        backgroundColor: colors.primary,
+                        opacity: !uniqueCode.trim() ? 0.5 : 1,
+                        marginTop: 20,
+                      },
                     ]}
-                    onPress={handleManualRegister}
-                    disabled={!uniqueCode.trim() || submitting}
+                    onPress={handleProceedToAlias}
+                    disabled={!uniqueCode.trim()}
                   >
-                    {submitting ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Text style={styles.submitButtonText}>Suivant</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#fff" />
-                      </>
-                    )}
+                    <Text style={styles.primaryButtonText}>Continuer</Text>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={20}
+                      color="#fff"
+                      style={{ marginLeft: 8 }}
+                    />
                   </TouchableOpacity>
                 </View>
               )}
-            </>
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* MODAL PERSONNALISATION */}
       {showCustomization && justAddedBraceletId && (
         <BraceletCustomizationModal
           isOpen={showCustomization}
@@ -436,233 +604,226 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: "700",
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#666",
-    marginVertical: 12,
+  stepContainer: {
+    flex: 1,
   },
-  modeSelection: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 16,
+    marginTop: 10,
+  },
+
+  // MODE GRID
+  modeGrid: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 24,
   },
   modeCard: {
     flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     alignItems: "center",
-  },
-  modeCardActive: {
-    borderColor: "#2196F3",
-    backgroundColor: "#e3f2fd",
+    justifyContent: "center",
+    gap: 12,
   },
   modeIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#f5f5f5",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  modeIconActive: {
-    backgroundColor: "#2196F3",
-  },
-  modeTitle: {
+  modeCardTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
   },
-  modeTitleActive: {
-    color: "#2196F3",
-  },
-  modeDescription: {
-    fontSize: 11,
-    color: "#999",
-    textAlign: "center",
-  },
-  scannerContainer: {
-    flex: 1,
-    justifyContent: "space-between",
-    paddingVertical: 12,
-  },
-  camera: {
-    flex: 1,
+
+  // CAMERA CARRÉE
+  cameraContainer: {
     width: "100%",
-    borderRadius: 12,
+    aspectRatio: 1,
+    borderRadius: 20,
     overflow: "hidden",
-    marginVertical: 12,
-    height: 300,
+    position: "relative",
+    backgroundColor: "black",
   },
-  scannerOverlay: {
-    flex: 1,
+  maskOverlay: { ...StyleSheet.absoluteFillObject },
+  maskRow: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
+  maskCenter: { height: SCANNER_SIZE, flexDirection: "row" },
+  maskCol: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
+  scanWindow: {
+    width: SCANNER_SIZE,
+    height: SCANNER_SIZE,
     backgroundColor: "transparent",
-    justifyContent: "center",
-    alignItems: "center",
     position: "relative",
   },
-  scannerFrame: {
-    width: 200,
-    height: 200,
-    borderWidth: 2,
-    borderColor: "#2196F3",
-    borderRadius: 12,
-    backgroundColor: "transparent",
-  },
-  scannerText: {
+  corner: {
     position: "absolute",
-    bottom: -40,
-    color: "#666",
-    fontSize: 14,
-    textAlign: "center",
-    width: "100%",
+    width: 20,
+    height: 20,
+    borderColor: "white",
+    borderWidth: 4,
   },
-  cancelButton: {
-    backgroundColor: "#f44336",
-    paddingVertical: 16,
+  tl: {
+    top: 0,
+    left: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 12,
+  },
+  tr: {
+    top: 0,
+    right: 0,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+    borderTopRightRadius: 12,
+  },
+  bl: {
+    bottom: 0,
+    left: 0,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+  },
+  br: {
+    bottom: 0,
+    right: 0,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    borderBottomRightRadius: 12,
+  },
+
+  // BOUTON ANNULER SCAN (Hors de la caméra)
+  cancelScanButton: {
+    marginTop: 16,
+    paddingVertical: 14,
     borderRadius: 12,
+    borderWidth: 1,
     alignItems: "center",
-    marginVertical: 12,
+    justifyContent: "center",
   },
-  cancelButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  cancelScanText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
-  permissionContainer: {
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+
+  // RESULTATS
+  placeholderBox: {
+    width: "100%",
+    aspectRatio: 1.2,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderStyle: "dashed",
     justifyContent: "center",
     alignItems: "center",
+  },
+  successCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  codeLabel: { fontSize: 13, fontWeight: "600", textTransform: "uppercase" },
+  codeValue: {
+    fontSize: 24,
+    fontWeight: "800",
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  redoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: 8,
+  },
+  redoText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+
+  // COMMON
+  iconCircleBig: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  stepTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  stepSubtitle: { fontSize: 14, textAlign: "center", marginBottom: 30 },
+  inputWrapper: { marginBottom: 16 },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  modernInput: {
+    height: 56,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  primaryButton: {
+    height: 56,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonText: { color: "white", fontSize: 16, fontWeight: "700" },
+  secondaryButton: {
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
   },
-  permissionDeniedText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginTop: 16,
-    textAlign: "center",
-  },
-  permissionDeniedSubtext: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 8,
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  permissionButton: {
-    backgroundColor: "#2196F3",
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  permissionButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  formContainer: {
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  formLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    marginBottom: 8,
-    backgroundColor: "#f9f9f9",
-  },
-  formHint: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 6,
-  },
-  scanButton: {
-    backgroundColor: "#4caf50",
-    padding: 15,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  scanButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  submitButton: {
-    backgroundColor: "#2196F3",
-    padding: 15,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 8,
-  },
-  submitButtonDisabled: {
-    backgroundColor: "#ccc",
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  hint: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  aliasInput: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    marginBottom: 12,
-    marginTop: 8,
-    backgroundColor: "#f9f9f9",
-  },
-  cancelAliasButton: {
-    backgroundColor: "#e0e0e0",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  cancelAliasButtonText: {
-    color: "#333",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  secondaryButtonText: { fontSize: 16, fontWeight: "600" },
+  actionButtons: { flexDirection: "row", gap: 12, marginTop: 20 },
+  scannerSection: { marginTop: 10 },
+  manualSection: { marginTop: 20 },
 });

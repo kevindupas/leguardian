@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,11 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useNavigation } from "expo-router"; // <-- Ajout useNavigation
 import { useTheme } from "../../contexts/ThemeContext";
 import { useI18n } from "../../contexts/I18nContext";
 import { getColors } from "../../constants/Colors";
@@ -23,12 +24,20 @@ interface User {
 }
 
 export default function ProfileScreen() {
+  const navigation = useNavigation(); // <-- Récupération navigation
   const { isDark, themeMode, setThemeMode } = useTheme();
   const { language, setLanguage, t } = useI18n();
   const colors = getColors(isDark);
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // --- C'EST ICI : ON CACHE LE BANDEAU NATIF ---
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   useEffect(() => {
     fetchUser();
@@ -39,27 +48,10 @@ export default function ProfileScreen() {
       const userData = await authService.getUser();
       setUser(userData);
     } catch (error) {
-      Alert.alert(
-        t("common.error"),
-        "Impossible de charger les informations utilisateur"
-      );
+      // Silent error
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleThemeChange = async (mode: "light" | "dark" | "system") => {
-    console.log("[Profile] Changing theme to:", mode);
-    await setThemeMode(mode);
-  };
-
-  const handleLanguageChange = async (lang: "fr" | "en") => {
-    console.log("[Profile] Changing language to:", lang);
-    await setLanguage(lang);
-  };
-
-  const handleChangePassword = () => {
-    router.push("/change-password");
   };
 
   const handleLogout = async () => {
@@ -82,304 +74,234 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.white }]}
-      >
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </SafeAreaView>
+      <View style={[styles.centered, { backgroundColor: colors.lightBg }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.white }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={styles.scrollView}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            {t("profile.title")}
+  const MenuItem = ({
+    icon,
+    label,
+    subtext,
+    onPress,
+    color = colors.textPrimary,
+  }: any) => (
+    <TouchableOpacity
+      style={[styles.menuItem, { backgroundColor: colors.white }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: colors.lightBg }]}>
+        <Ionicons name={icon} size={20} color={colors.primary} />
+      </View>
+      <View style={styles.menuTextContainer}>
+        <Text style={[styles.menuLabel, { color }]}>{label}</Text>
+        {subtext && (
+          <Text style={[styles.menuSubtext, { color: colors.textSecondary }]}>
+            {subtext}
           </Text>
-          <Text
-            style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-          >
-            {t("profile.settings")}
-          </Text>
-        </View>
+        )}
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
 
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.lightBg,
-              borderColor: colors.mediumBg,
-            },
-          ]}
-        >
-          <View style={styles.cardHeader}>
-            <View
-              style={[
-                styles.avatarContainer,
-                { backgroundColor: colors.primary + "20" },
-              ]}
-            >
-              <Ionicons name="person-circle" size={48} color={colors.primary} />
-            </View>
-            <View style={styles.userInfo}>
-              <Text style={[styles.userName, { color: colors.textPrimary }]}>
-                {user?.name}
-              </Text>
-              <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
-                {user?.email}
-              </Text>
-            </View>
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.lightBg }]}
+      edges={["top"]}
+    >
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+
+      {/* HEADER CUSTOM */}
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {t("profile.title")}
+        </Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* PROFILE CARD */}
+        <View style={styles.profileCard}>
+          <View
+            style={[
+              styles.avatarCircle,
+              {
+                backgroundColor: colors.primary + "15",
+                borderColor: colors.primary,
+              },
+            ]}
+          >
+            <Text style={[styles.avatarInitials, { color: colors.primary }]}>
+              {user?.name?.substring(0, 2).toUpperCase() || "U"}
+            </Text>
+          </View>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>
+            {user?.name}
+          </Text>
+          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
+            {user?.email}
+          </Text>
+
+          <View
+            style={[
+              styles.roleBadge,
+              { backgroundColor: colors.success + "15" },
+            ]}
+          >
+            <Text style={[styles.roleText, { color: colors.success }]}>
+              Compte vérifié
+            </Text>
           </View>
         </View>
 
+        {/* PRÉFÉRENCES */}
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
           {t("profile.settings")}
         </Text>
 
+        {/* Thème */}
         <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.lightBg,
-              borderColor: colors.mediumBg,
-            },
-          ]}
+          style={[styles.selectorContainer, { backgroundColor: colors.white }]}
         >
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="contrast" size={20} color={colors.primary} />
-              <View style={styles.settingInfo}>
-                <Text
-                  style={[styles.settingLabel, { color: colors.textPrimary }]}
-                >
-                  {t("profile.theme")}
-                </Text>
-                <Text
+          <Text style={[styles.selectorLabel, { color: colors.textPrimary }]}>
+            {t("profile.theme")}
+          </Text>
+          <View
+            style={[styles.segmentTrack, { backgroundColor: colors.lightBg }]}
+          >
+            {(["light", "dark", "system"] as const).map((mode) => {
+              const isActive = themeMode === mode;
+              return (
+                <TouchableOpacity
+                  key={mode}
                   style={[
-                    styles.settingDescription,
-                    { color: colors.textSecondary },
+                    styles.segmentBtn,
+                    isActive && styles.segmentBtnActive,
                   ]}
+                  onPress={() => setThemeMode(mode)}
                 >
-                  {themeMode === "system"
-                    ? t("profile.systemMode")
-                    : themeMode === "dark"
-                    ? t("profile.darkMode")
-                    : t("profile.lightMode")}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.optionsContainer}>
-            {(["light", "dark", "system"] as const).map((mode) => (
-              <TouchableOpacity
-                key={mode}
-                style={[
-                  styles.optionButton,
-                  {
-                    backgroundColor:
-                      themeMode === mode
-                        ? colors.primary + "20"
-                        : "transparent",
-                    borderColor:
-                      themeMode === mode ? colors.primary : colors.mediumBg,
-                  },
-                ]}
-                onPress={() => handleThemeChange(mode)}
-              >
-                <Ionicons
-                  name={
-                    mode === "light"
-                      ? "sunny"
+                  <Ionicons
+                    name={
+                      mode === "light"
+                        ? "sunny"
+                        : mode === "dark"
+                        ? "moon"
+                        : "contrast"
+                    }
+                    size={16}
+                    color={isActive ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      {
+                        color: isActive ? colors.primary : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {mode === "light"
+                      ? "Clair"
                       : mode === "dark"
-                      ? "moon"
-                      : "contrast"
-                  }
-                  size={18}
-                  color={
-                    themeMode === mode ? colors.primary : colors.textSecondary
-                  }
-                />
-                <Text
-                  style={[
-                    styles.optionLabel,
-                    {
-                      color:
-                        themeMode === mode
-                          ? colors.primary
-                          : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  {mode === "light"
-                    ? t("profile.lightMode")
-                    : mode === "dark"
-                    ? t("profile.darkMode")
-                    : t("profile.systemMode")}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                      ? "Sombre"
+                      : "Auto"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
+        {/* Langue */}
         <View
           style={[
-            styles.card,
-            {
-              backgroundColor: colors.lightBg,
-              borderColor: colors.mediumBg,
-            },
+            styles.selectorContainer,
+            { backgroundColor: colors.white, marginTop: 12 },
           ]}
         >
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="language" size={20} color={colors.primary} />
-              <View style={styles.settingInfo}>
-                <Text
-                  style={[styles.settingLabel, { color: colors.textPrimary }]}
-                >
-                  {t("profile.language")}
-                </Text>
-                <Text
+          <Text style={[styles.selectorLabel, { color: colors.textPrimary }]}>
+            {t("profile.language")}
+          </Text>
+          <View
+            style={[styles.segmentTrack, { backgroundColor: colors.lightBg }]}
+          >
+            {(["fr", "en"] as const).map((lang) => {
+              const isActive = language === lang;
+              return (
+                <TouchableOpacity
+                  key={lang}
                   style={[
-                    styles.settingDescription,
-                    { color: colors.textSecondary },
+                    styles.segmentBtn,
+                    isActive && styles.segmentBtnActive,
                   ]}
+                  onPress={() => setLanguage(lang)}
                 >
-                  {language === "fr" ? "Français" : "English"}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.optionsContainer}>
-            {(["fr", "en"] as const).map((lang) => (
-              <TouchableOpacity
-                key={lang}
-                style={[
-                  styles.optionButton,
-                  {
-                    backgroundColor:
-                      language === lang ? colors.primary + "20" : "transparent",
-                    borderColor:
-                      language === lang ? colors.primary : colors.mediumBg,
-                  },
-                ]}
-                onPress={() => handleLanguageChange(lang)}
-              >
-                <Text
-                  style={[
-                    styles.optionLabel,
-                    {
-                      color:
-                        language === lang
-                          ? colors.primary
-                          : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  {lang === "fr" ? "Français" : "English"}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      {
+                        color: isActive ? colors.primary : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {lang === "fr" ? "Français 🇫🇷" : "English 🇬🇧"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          Sécurité
-        </Text>
-
-        <TouchableOpacity
+        {/* COMPTE */}
+        <Text
           style={[
-            styles.card,
-            {
-              backgroundColor: colors.lightBg,
-              borderColor: colors.mediumBg,
-            },
-          ]}
-          onPress={handleChangePassword}
-        >
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="lock-closed" size={20} color={colors.primary} />
-              <View style={styles.settingInfo}>
-                <Text
-                  style={[styles.settingLabel, { color: colors.textPrimary }]}
-                >
-                  {t("profile.changePassword")}
-                </Text>
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {t("password.title")}
-                </Text>
-              </View>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </View>
-        </TouchableOpacity>
-
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          À propos
-        </Text>
-
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.lightBg,
-              borderColor: colors.mediumBg,
-            },
+            styles.sectionTitle,
+            { color: colors.textSecondary, marginTop: 24 },
           ]}
         >
-          <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Ionicons
-                name="information-circle"
-                size={20}
-                color={colors.primary}
-              />
-              <View style={styles.settingInfo}>
-                <Text
-                  style={[styles.settingLabel, { color: colors.textPrimary }]}
-                >
-                  {t("profile.version")}
-                </Text>
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  1.0.0
-                </Text>
-              </View>
-            </View>
-          </View>
+          Compte
+        </Text>
+
+        <View style={styles.menuGroup}>
+          <MenuItem
+            icon="lock-closed-outline"
+            label={t("profile.changePassword")}
+            onPress={() => router.push("/change-password")}
+          />
+          <View
+            style={[styles.separator, { backgroundColor: colors.lightBg }]}
+          />
+          <MenuItem
+            icon="information-circle-outline"
+            label={t("profile.version")}
+            subtext="v1.0.0"
+            onPress={() => {}}
+          />
         </View>
 
+        {/* LOGOUT */}
         <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: colors.danger }]}
+          style={[
+            styles.logoutButton,
+            { backgroundColor: colors.white, borderColor: colors.danger },
+          ]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out" size={18} color={colors.white} />
-          <Text style={styles.logoutButtonText}>{t("profile.logout")}</Text>
+          <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+          <Text style={[styles.logoutText, { color: colors.danger }]}>
+            {t("profile.logout")}
+          </Text>
         </TouchableOpacity>
+
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+          SafeBracelet App © 2024
+        </Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -387,120 +309,166 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   header: {
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: "800",
-    marginBottom: 4,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    fontWeight: "500",
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
-  card: {
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  cardHeader: {
-    flexDirection: "row",
+
+  profileCard: {
     alignItems: "center",
-    gap: 14,
+    marginVertical: 20,
   },
-  avatarContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  avatarCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
     justifyContent: "center",
     alignItems: "center",
+    marginBottom: 12,
   },
-  userInfo: {
-    flex: 1,
+  avatarInitials: {
+    fontSize: 32,
+    fontWeight: "800",
   },
   userName: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "700",
     marginBottom: 4,
   },
   userEmail: {
-    fontSize: 13,
+    fontSize: 14,
+    marginBottom: 12,
   },
+  roleBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginTop: 20,
+    letterSpacing: 0.5,
     marginBottom: 12,
+    marginLeft: 4,
   },
-  settingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  selectorContainer: {
+    padding: 16,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  settingLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    flex: 1,
-  },
-  settingInfo: {
-    flex: 1,
-  },
-  settingLabel: {
+  selectorLabel: {
     fontSize: 15,
     fontWeight: "600",
-    marginBottom: 2,
+    marginBottom: 12,
   },
-  settingDescription: {
-    fontSize: 12,
-  },
-  optionsContainer: {
+  segmentTrack: {
     flexDirection: "row",
-    gap: 10,
-    marginTop: 16,
+    padding: 4,
+    borderRadius: 12,
+    height: 44,
   },
-  optionButton: {
+  segmentBtn: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
     gap: 6,
   },
-  optionLabel: {
-    fontSize: 12,
+  segmentBtnActive: {
+    backgroundColor: "white",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
     fontWeight: "600",
   },
+
+  menuGroup: {
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    gap: 16,
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuTextContainer: {
+    flex: 1,
+  },
+  menuLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  menuSubtext: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  separator: {
+    height: 1,
+    marginLeft: 68,
+  },
+
   logoutButton: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    marginTop: 24,
-    marginBottom: 32,
+    paddingVertical: 16,
+    borderRadius: 20,
+    marginTop: 30,
+    borderWidth: 1,
+    gap: 8,
   },
-  logoutButtonText: {
-    color: "#FFFFFF",
+  logoutText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  footerText: {
+    textAlign: "center",
+    fontSize: 12,
+    marginTop: 20,
+    opacity: 0.5,
   },
 });

@@ -154,6 +154,47 @@ export const BraceletCustomizationModal: React.FC<
             </Text>
           </View>
 
+          {/* Photo Section */}
+          <View style={styles.section}>
+            <View style={styles.photoButtonsContainer}>
+              <Pressable
+                onPress={() => handlePickImage("camera")}
+                style={({ pressed }) => [
+                  styles.photoButton,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Ionicons name="camera" size={20} color="#2196F3" />
+                <Text style={styles.photoButtonText}>Caméra</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => handlePickImage("gallery")}
+                style={({ pressed }) => [
+                  styles.photoButton,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Ionicons name="image" size={20} color="#2196F3" />
+                <Text style={styles.photoButtonText}>Galerie</Text>
+              </Pressable>
+
+              {selectedPhoto && (
+                <Pressable
+                  onPress={() => setSelectedPhoto(null)}
+                  style={({ pressed }) => [
+                    styles.photoButton,
+                    styles.photoButtonDanger,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Ionicons name="trash" size={20} color="#f44336" />
+                  <Text style={styles.photoButtonTextDanger}>Supprimer</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+
           {/* Color Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Couleur du bracelet</Text>
@@ -170,53 +211,16 @@ export const BraceletCustomizationModal: React.FC<
                 >
                   {selectedColor === color && (
                     <View style={styles.colorSelected}>
-                      <Ionicons name="checkmark" size={16} color="#fff" weight="bold" />
+                      <Ionicons
+                        name="checkmark"
+                        size={16}
+                        color="#fff"
+                        weight="bold"
+                      />
                     </View>
                   )}
                 </Pressable>
               ))}
-            </View>
-          </View>
-
-          {/* Photo Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Photo de l'enfant</Text>
-
-            {selectedPhoto ? (
-              <View style={styles.photoSelectedContainer}>
-                <View style={styles.photoSelectedIcon}>
-                  <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                </View>
-                <Text style={styles.photoSelectedText}>Photo ajoutée</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.photoButtonsContainer}>
-              <Pressable
-                onPress={() => handlePickImage("camera")}
-                style={({ pressed }) => [styles.photoButton, pressed && { opacity: 0.7 }]}
-              >
-                <Ionicons name="camera" size={20} color="#2196F3" />
-                <Text style={styles.photoButtonText}>Caméra</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => handlePickImage("gallery")}
-                style={({ pressed }) => [styles.photoButton, pressed && { opacity: 0.7 }]}
-              >
-                <Ionicons name="image" size={20} color="#2196F3" />
-                <Text style={styles.photoButtonText}>Galerie</Text>
-              </Pressable>
-
-              {selectedPhoto && (
-                <Pressable
-                  onPress={() => setSelectedPhoto(null)}
-                  style={({ pressed }) => [styles.photoButton, styles.photoButtonDanger, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons name="trash" size={20} color="#f44336" />
-                  <Text style={styles.photoButtonTextDanger}>Supprimer</Text>
-                </Pressable>
-              )}
             </View>
           </View>
         </ScrollView>

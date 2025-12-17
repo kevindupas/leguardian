@@ -1,6 +1,8 @@
 // LeGuardian Modern & Friendly Design System
 // Tons frais et apaisants pour rassurer les parents
 
+import { ColorValue } from "react-native";
+
 // Couleurs principales (Bleu ciel, Vert menthe, Mauve)
 const PRIMARY_BLUE = '#5DADE2';      // Bleu ciel doux - Confiance, rassurant
 const SECONDARY_GREEN = '#48C9B0';   // Vert menthe - Sécurité, succès
@@ -25,6 +27,7 @@ const STATUS_WARNING = '#FFB366';    // Perdu - Orange chaud
 const STATUS_SUCCESS = '#48C9B0';    // Arrivé - Vert menthe
 
 interface ColorScheme {
+  background: ColorValue | undefined;
   primary: string;
   secondary: string;
   accent: string;
@@ -41,6 +44,7 @@ interface ColorScheme {
 }
 
 const lightColors: ColorScheme = {
+  background: LIGHT_WHITE,
   primary: PRIMARY_BLUE,
   secondary: SECONDARY_GREEN,
   accent: ACCENT_PURPLE,
@@ -57,6 +61,7 @@ const lightColors: ColorScheme = {
 };
 
 const darkColors: ColorScheme = {
+  background: DARK_BG,
   primary: PRIMARY_BLUE,
   secondary: SECONDARY_GREEN,
   accent: ACCENT_PURPLE,

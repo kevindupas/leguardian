@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { braceletCustomizationService, BraceletCustomization } from '../services/BraceletCustomizationService';
 
 interface UseBraceletCustomizationReturn {
@@ -9,25 +9,27 @@ interface UseBraceletCustomizationReturn {
   updateColor: (color: string) => Promise<void>;
   updatePhoto: (uri: string) => Promise<void>;
   removePhoto: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 export function useBraceletCustomization(braceletId: number): UseBraceletCustomizationReturn {
   const [customization, setCustomization] = useState<BraceletCustomization | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshCounterRef = useRef(0);
+
+  const loadCustomization = useCallback(async () => {
+    const data = await braceletCustomizationService.getCustomization(braceletId);
+    if (!data) {
+      setCustomization({ braceletId, color: '#2196F3', updatedAt: Date.now() });
+    } else {
+      setCustomization(data);
+    }
+    setIsLoading(false);
+  }, [braceletId]);
 
   useEffect(() => {
-    const loadCustomization = async () => {
-      const data = await braceletCustomizationService.getCustomization(braceletId);
-      if (!data) {
-        setCustomization({ braceletId, color: '#2196F3', updatedAt: Date.now() });
-      } else {
-        setCustomization(data);
-      }
-      setIsLoading(false);
-    };
-
     loadCustomization();
-  }, [braceletId]);
+  }, [braceletId, loadCustomization]);
 
   const updateColor = useCallback(async (color: string) => {
     try {
@@ -62,6 +64,10 @@ export function useBraceletCustomization(braceletId: number): UseBraceletCustomi
     }
   }, [braceletId]);
 
+  const refresh = useCallback(async () => {
+    await loadCustomization();
+  }, [loadCustomization]);
+
   return {
     customization,
     isLoading,
@@ -70,5 +76,6 @@ export function useBraceletCustomization(braceletId: number): UseBraceletCustomi
     updateColor,
     updatePhoto,
     removePhoto,
+    refresh,
   };
 }

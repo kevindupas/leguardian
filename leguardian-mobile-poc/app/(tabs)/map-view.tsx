@@ -96,8 +96,7 @@ export default function MapViewScreen() {
   const [savingZone, setSavingZone] = useState(false);
 
   // --- Zone Filter ---
-  const [selectedZoneIds, setSelectedZoneIds] = useState<Set<number>>(new Set());
-  const [showZoneFilter, setShowZoneFilter] = useState(false);
+  const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -239,21 +238,10 @@ export default function MapViewScreen() {
     }
   };
 
-  // --- Zone Filter Toggle ---
-  const toggleZoneFilter = (zoneId: number) => {
-    const newSet = new Set(selectedZoneIds);
-    if (newSet.has(zoneId)) {
-      newSet.delete(zoneId);
-    } else {
-      newSet.add(zoneId);
-    }
-    setSelectedZoneIds(newSet);
-  };
-
-  // Si pas de zones sélectionnées, afficher toutes. Sinon, afficher que les sélectionnées
-  const filteredZones = zones.filter(
-    (zone) => selectedZoneIds.size === 0 || selectedZoneIds.has(zone.id)
-  );
+  // Afficher toutes les zones ou filtrer par zone sélectionnée
+  const filteredZones = selectedZoneId
+    ? zones.filter((zone) => zone.id === selectedZoneId)
+    : zones;
 
   // Optimisation : On mémorise les markers pour éviter qu'ils ne clignotent/reloadent la map
   const markers = useMemo(() => {
@@ -384,55 +372,51 @@ export default function MapViewScreen() {
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
-          {/* Zone Filter Scroll */}
+          {/* Zone Filter Select */}
           {!isDrawingMode && zones.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.zoneFilterScroll}
-              contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
-            >
-              {zones.map((zone) => (
-                <TouchableOpacity
-                  key={`filter-${zone.id}`}
-                  onPress={() => toggleZoneFilter(zone.id)}
-                  style={[
-                    styles.zonePill,
-                    {
-                      backgroundColor: selectedZoneIds.has(zone.id)
-                        ? colors.primary
-                        : colors.lightBg,
-                      borderColor: selectedZoneIds.has(zone.id)
-                        ? colors.primary
-                        : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={zone.icon as any}
-                    size={16}
-                    color={
-                      selectedZoneIds.has(zone.id)
-                        ? "white"
-                        : colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.zonePillText,
+            <View style={styles.zoneSelectContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.zoneSelectButton,
+                  { borderColor: colors.primary, backgroundColor: colors.lightBg },
+                ]}
+                onPress={() =>
+                  Alert.alert(
+                    "Filtrer par zone",
+                    undefined,
+                    [
+                      ...zones.map((zone) => ({
+                        text: zone.name,
+                        onPress: () => setSelectedZoneId(zone.id),
+                      })),
                       {
-                        color: selectedZoneIds.has(zone.id)
-                          ? "white"
-                          : colors.textSecondary,
+                        text: "Toutes les zones",
+                        onPress: () => setSelectedZoneId(null),
                       },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {zone.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                      { text: "Annuler", style: "cancel" },
+                    ]
+                  )
+                }
+              >
+                <Ionicons
+                  name={
+                    selectedZoneId
+                      ? (zones.find((z) => z.id === selectedZoneId)?.icon as any)
+                      : "layers-outline"
+                  }
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text
+                  style={[styles.zoneSelectText, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {selectedZoneId
+                    ? zones.find((z) => z.id === selectedZoneId)?.name
+                    : "Toutes"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           <TouchableOpacity
@@ -726,6 +710,24 @@ const styles = StyleSheet.create({
   zonePillText: {
     fontSize: 13,
     fontWeight: "600",
+  },
+  zoneSelectContainer: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  zoneSelectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 6,
+  },
+  zoneSelectText: {
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
   },
   rightTools: { position: "absolute", right: 16, gap: 12 },
   circleButton: {

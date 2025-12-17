@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BraceletController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\SafetyZoneController;
+use App\Http\Controllers\Api\BraceletSharingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -45,6 +46,15 @@ Route::prefix('mobile')->middleware('auth:sanctum')->group(function () {
     Route::get('bracelets/{bracelet}/zones/{zone}', [SafetyZoneController::class, 'show']);
     Route::put('bracelets/{bracelet}/zones/{zone}', [SafetyZoneController::class, 'update']);
     Route::delete('bracelets/{bracelet}/zones/{zone}', [SafetyZoneController::class, 'destroy']);
+
+    // Bracelet Sharing (Phase 4)
+    Route::post('bracelets/{bracelet}/share', [BraceletSharingController::class, 'share']);
+    Route::get('bracelets/{bracelet}/shared-guardians', [BraceletSharingController::class, 'index']);
+    Route::put('bracelets/{bracelet}/shared-guardians/{targetGuardian}', [BraceletSharingController::class, 'updatePermissions']);
+    Route::delete('bracelets/{bracelet}/shared-guardians/{targetGuardian}', [BraceletSharingController::class, 'revoke']);
+    Route::get('sharing-invitations', [BraceletSharingController::class, 'invitations']);
+    Route::post('bracelets/{bracelet}/sharing-invitations/accept', [BraceletSharingController::class, 'accept']);
+    Route::post('bracelets/{bracelet}/sharing-invitations/decline', [BraceletSharingController::class, 'decline']);
 
     // Events
     Route::get('events', [BraceletController::class, 'getAllEvents']);

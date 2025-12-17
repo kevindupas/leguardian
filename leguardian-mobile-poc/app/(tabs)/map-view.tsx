@@ -95,6 +95,10 @@ export default function MapViewScreen() {
   const [selectedZoneIcon, setSelectedZoneIcon] = useState("home");
   const [savingZone, setSavingZone] = useState(false);
 
+  // --- Zone Filter ---
+  const [selectedZoneIds, setSelectedZoneIds] = useState<Set<number>>(new Set());
+  const [showZoneFilter, setShowZoneFilter] = useState(false);
+
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
@@ -235,6 +239,22 @@ export default function MapViewScreen() {
     }
   };
 
+  // --- Zone Filter Toggle ---
+  const toggleZoneFilter = (zoneId: number) => {
+    const newSet = new Set(selectedZoneIds);
+    if (newSet.has(zoneId)) {
+      newSet.delete(zoneId);
+    } else {
+      newSet.add(zoneId);
+    }
+    setSelectedZoneIds(newSet);
+  };
+
+  // Si pas de zones sélectionnées, afficher toutes. Sinon, afficher que les sélectionnées
+  const filteredZones = zones.filter(
+    (zone) => selectedZoneIds.size === 0 || selectedZoneIds.has(zone.id)
+  );
+
   // Optimisation : On mémorise les markers pour éviter qu'ils ne clignotent/reloadent la map
   const markers = useMemo(() => {
     if (isDrawingMode) return null;
@@ -305,8 +325,8 @@ export default function MapViewScreen() {
         {/* Affichage optimisé des markers */}
         {markers}
 
-        {/* Zones sauvegardées */}
-        {!isDrawingMode && zones.map((zone) => (
+        {/* Zones sauvegardées (filtrées) */}
+        {!isDrawingMode && filteredZones.map((zone) => (
           <Polygon
             key={`zone-${zone.id}`}
             coordinates={zone.coordinates}
@@ -356,19 +376,72 @@ export default function MapViewScreen() {
 
       {/* Top Bar */}
       <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
-        <TouchableOpacity
-          style={[styles.circleButton, { backgroundColor: colors.white }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <View style={styles.topBarContent}>
+          <TouchableOpacity
+            style={[styles.circleButton, { backgroundColor: colors.white }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.circleButton, { backgroundColor: colors.white }]}
-          onPress={() => setShowMapTypePicker(true)}
-        >
-          <Ionicons name="layers" size={24} color={colors.primary} />
-        </TouchableOpacity>
+          {/* Zone Filter Scroll */}
+          {!isDrawingMode && zones.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.zoneFilterScroll}
+              contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
+            >
+              {zones.map((zone) => (
+                <TouchableOpacity
+                  key={`filter-${zone.id}`}
+                  onPress={() => toggleZoneFilter(zone.id)}
+                  style={[
+                    styles.zonePill,
+                    {
+                      backgroundColor: selectedZoneIds.has(zone.id)
+                        ? colors.primary
+                        : colors.lightBg,
+                      borderColor: selectedZoneIds.has(zone.id)
+                        ? colors.primary
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={zone.icon as any}
+                    size={16}
+                    color={
+                      selectedZoneIds.has(zone.id)
+                        ? "white"
+                        : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.zonePillText,
+                      {
+                        color: selectedZoneIds.has(zone.id)
+                          ? "white"
+                          : colors.textSecondary,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {zone.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          <TouchableOpacity
+            style={[styles.circleButton, { backgroundColor: colors.white }]}
+            onPress={() => setShowMapTypePicker(true)}
+          >
+            <Ionicons name="layers" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
 
       {/* Right Tools */}
@@ -621,8 +694,38 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 10,
+    paddingBottom: 10,
+  },
+  topBarContent: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+  },
+  zoneFilterScroll: {
+    flex: 1,
+  },
+  zonePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    gap: 6,
+    minHeight: 36,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  zonePillText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   rightTools: { position: "absolute", right: 16, gap: 12 },
   circleButton: {

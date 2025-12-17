@@ -7,8 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Bracelet;
 use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
+use App\Services\ExpoPushNotificationService;
+use App\Helpers\GeofencingHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class DeviceController extends Controller
 {
@@ -349,7 +353,7 @@ class DeviceController extends Controller
     {
         $bracelet = $this->getBraceletFromRequest($request);
         if (!$bracelet) {
-            \Log::error('Heartbeat - Bracelet not found', [
+            Log::error('Heartbeat - Bracelet not found', [
                 'header_x_bracelet_id' => $request->header('X-Bracelet-ID'),
                 'all_headers' => $request->headers->all(),
             ]);
@@ -385,7 +389,16 @@ class DeviceController extends Controller
         // Don't store heartbeat as event - just update location
         // This avoids cluttering the timeline with too many heartbeat points
 
-        \Log::info('Heartbeat updated', [
+        // NEW: Check geofencing if location is provided
+        if ($request->has('latitude') && $request->latitude && $request->has('longitude') && $request->longitude) {
+            $this->checkGeofencingViolations(
+                $bracelet,
+                (float)$request->latitude,
+                (float)$request->longitude
+            );
+        }
+
+        Log::info('Heartbeat updated', [
             'bracelet_id' => $bracelet->id,
             'battery' => $updateData['battery_level'],
             'location_updated' => isset($updateData['last_latitude']),
@@ -393,13 +406,90 @@ class DeviceController extends Controller
 
         // Broadcast update to connected clients
         BraceletUpdated::dispatch($bracelet, $updateData);
-        \Log::info('BraceletUpdated::dispatch called from heartbeat', [
+        Log::info('BraceletUpdated::dispatch called from heartbeat', [
             'bracelet_id' => $bracelet->id,
         ]);
 
         return response()->json([
             'success' => true,
             'next_ping' => 120, // 2 minutes - periodic location transmission
+        ]);
+    }
+
+    /**
+     * Check if bracelet has entered or exited any safety zones
+     */
+    private function checkGeofencingViolations(Bracelet $bracelet, float $latitude, float $longitude)
+    {
+        $zones = $bracelet->safetyZones;
+
+        if ($zones->isEmpty()) {
+            return;
+        }
+
+        $pushService = new ExpoPushNotificationService();
+
+        foreach ($zones as $zone) {
+            $isInside = GeofencingHelper::isPointInPolygon($latitude, $longitude, $zone->coordinates);
+
+            // Get previous state from cache
+            $cacheKey = "bracelet_{$bracelet->id}_zone_{$zone->id}_inside";
+            $wasInside = Cache::get($cacheKey, false);
+
+            // Entry detection
+            if ($isInside && !$wasInside && $zone->notify_on_entry) {
+                $this->createGeofenceEvent($bracelet, $zone, 'entry', $latitude, $longitude);
+
+                // Send notifications to all guardians with access
+                $guardians = $bracelet->guardian ? [$bracelet->guardian] : [];
+                foreach ($guardians as $guardian) {
+                    $pushService->sendGeofenceEntryAlert($guardian, $bracelet, $zone);
+                }
+
+                Log::info("Zone entry detected", [
+                    'bracelet_id' => $bracelet->id,
+                    'zone_id' => $zone->id,
+                    'zone_name' => $zone->name,
+                ]);
+            }
+
+            // Exit detection
+            if (!$isInside && $wasInside && $zone->notify_on_exit) {
+                $this->createGeofenceEvent($bracelet, $zone, 'exit', $latitude, $longitude);
+
+                // Send notifications to all guardians with access
+                $guardians = $bracelet->guardian ? [$bracelet->guardian] : [];
+                foreach ($guardians as $guardian) {
+                    $pushService->sendGeofenceExitAlert($guardian, $bracelet, $zone);
+                }
+
+                Log::info("Zone exit detected", [
+                    'bracelet_id' => $bracelet->id,
+                    'zone_id' => $zone->id,
+                    'zone_name' => $zone->name,
+                ]);
+            }
+
+            // Update cache with current state (expires in 1 hour)
+            Cache::put($cacheKey, $isInside, 3600);
+        }
+    }
+
+    /**
+     * Create a geofence event
+     */
+    private function createGeofenceEvent(Bracelet $bracelet, $zone, string $type, float $latitude, float $longitude)
+    {
+        BraceletEvent::create([
+            'bracelet_id' => $bracelet->id,
+            'event_type' => "zone_{$type}",
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'battery_level' => $bracelet->battery_level,
+            'metadata' => json_encode([
+                'zone_id' => $zone->id,
+                'zone_name' => $zone->name,
+            ]),
         ]);
     }
 

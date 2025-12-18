@@ -19,7 +19,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "expo-router";
+import { useNavigation, useRouter, useLocalSearchParams } from "expo-router";
 import MapView, {
   Marker,
   Polygon,
@@ -35,6 +35,7 @@ import { MapTypePickerBottomSheet } from "../../components/MapTypePickerBottomSh
 import { useZoneDrawing } from "../../hooks/useZoneDrawing";
 import { useSafetyZones } from "../../hooks/useSafetyZones";
 import { BraceletMapCard } from "../../components/BraceletMapCard";
+import { ZonePickerTopSheet } from "@/components/ZonePickerBottomSheet";
 
 const CARD_WIDTH = Dimensions.get("window").width * 0.85;
 const SPACING_FOR_CARD_INSET = Dimensions.get("window").width * 0.075 - 10;
@@ -50,17 +51,17 @@ const ZONE_ICONS = [
 
 export default function MapViewScreen() {
   const navigation = useNavigation();
+  const router = useRouter();
+  const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const colors = getColors(isDark);
 
   const mapRef = useRef<MapView>(null);
   const flatListRef = useRef<FlatList>(null);
-
-  // Ref pour empêcher le recentrage automatique après le premier chargement
   const hasCenteredMap = useRef(false);
 
-  // --- States ---
+  // States
   const [bracelets, setBracelets] = useState<Bracelet[]>([]);
   const [customizations, setCustomizations] = useState<
     Record<number, { color: string; photoUri?: string }>
@@ -72,9 +73,12 @@ export default function MapViewScreen() {
   const [mapType, setMapType] = useState<
     "standard" | "satellite" | "hybrid" | "terrain"
   >("standard");
-  const [showMapTypePicker, setShowMapTypePicker] = useState(false);
 
-  // --- Drawing Hook ---
+  // Pickers
+  const [showMapTypePicker, setShowMapTypePicker] = useState(false);
+  const [showZonePicker, setShowZonePicker] = useState(false);
+
+  // Hooks
   const {
     isDrawingMode,
     zoneCoordinates,
@@ -86,28 +90,57 @@ export default function MapViewScreen() {
     hasEnoughPoints,
   } = useZoneDrawing();
 
-  // --- Safety Zones Hook ---
   const { zones, createZone } = useSafetyZones(selectedBraceletId);
 
-  // Modal Zone
+  // Zone Modal
   const [showZoneModal, setShowZoneModal] = useState(false);
   const [newZoneName, setNewZoneName] = useState("");
   const [selectedZoneIcon, setSelectedZoneIcon] = useState("home");
-  const [savingZone, setSavingZone] = useState(false);
-
-  // --- Zone Filter ---
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  // Chargement
   useEffect(() => {
     loadData();
     const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // --- ZOOM INITIAL ---
+  useEffect(() => {
+    if (bracelets.length > 0 && !hasCenteredMap.current && !isDrawingMode) {
+      const paramId = params.braceletId
+        ? parseInt(params.braceletId as string)
+        : null;
+      const targetId = paramId || bracelets[0].id;
+      const target = bracelets.find((b) => b.id === targetId) || bracelets[0];
+
+      if (target) {
+        setSelectedBraceletId(target.id);
+        const index = bracelets.indexOf(target);
+        if (index !== -1) {
+          setTimeout(
+            () => flatListRef.current?.scrollToIndex({ index, animated: true }),
+            500
+          );
+        }
+        setTimeout(() => {
+          mapRef.current?.animateToRegion(
+            {
+              latitude: parseFloat(target.last_latitude as any),
+              longitude: parseFloat(target.last_longitude as any),
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            },
+            1000
+          );
+        }, 600);
+        hasCenteredMap.current = true;
+      }
+    }
+  }, [bracelets, params.braceletId]);
 
   const loadData = async () => {
     try {
@@ -130,17 +163,6 @@ export default function MapViewScreen() {
         };
       }
       setCustomizations(customizationData);
-
-      // CORRECTIF : On ne centre qu'une seule fois au tout début (grâce à la ref)
-      if (
-        !hasCenteredMap.current &&
-        validBracelets.length > 0 &&
-        !isDrawingMode
-      ) {
-        hasCenteredMap.current = true;
-        setSelectedBraceletId(validBracelets[0].id);
-        animateToBracelet(validBracelets[0]);
-      }
     } catch (error) {
       console.log("Erreur chargement:", error);
     } finally {
@@ -149,11 +171,8 @@ export default function MapViewScreen() {
   };
 
   const animateToBracelet = (bracelet: Bracelet) => {
-    // Si on dessine, INTERDIT de bouger la carte
     if (isDrawingMode) return;
-
     if (!bracelet.last_latitude || !bracelet.last_longitude) return;
-
     mapRef.current?.animateToRegion(
       {
         latitude: parseFloat(bracelet.last_latitude as any),
@@ -169,11 +188,7 @@ export default function MapViewScreen() {
     if (isDrawingMode) return;
     const contentOffset = e.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffset / (CARD_WIDTH + 10));
-
     const targetBracelet = bracelets[index];
-
-    // CORRECTIF CRUCIAL : On ne bouge la carte QUE si l'ID a changé.
-    // Cela empêche le polling (rafraîchissement auto) de reset le zoom.
     if (targetBracelet && targetBracelet.id !== selectedBraceletId) {
       setSelectedBraceletId(targetBracelet.id);
       animateToBracelet(targetBracelet);
@@ -182,13 +197,11 @@ export default function MapViewScreen() {
 
   const onMarkerPress = (bracelet: Bracelet, index: number) => {
     if (isDrawingMode) return;
-    // Ici on force le mouvement car c'est une action utilisateur explicite
     setSelectedBraceletId(bracelet.id);
     flatListRef.current?.scrollToIndex({ index, animated: true });
     animateToBracelet(bracelet);
   };
 
-  // --- Actions Dessin ---
   const toggleDrawingMode = () => {
     if (isDrawingMode) stopDrawing();
     else startDrawing();
@@ -204,53 +217,40 @@ export default function MapViewScreen() {
 
   const saveZone = async () => {
     if (!selectedBraceletId || !newZoneName.trim()) {
-      Alert.alert("Erreur", "Bracelet ou nom de zone manquant");
+      Alert.alert("Erreur", "Données manquantes");
       return;
     }
-
-    setSavingZone(true);
     try {
       const result = await createZone({
         name: newZoneName,
         icon: selectedZoneIcon,
-        coordinates: zoneCoordinates.map((coord) => ({
-          latitude: coord.latitude,
-          longitude: coord.longitude,
+        coordinates: zoneCoordinates.map((c) => ({
+          latitude: c.latitude,
+          longitude: c.longitude,
         })),
         notify_on_entry: true,
         notify_on_exit: true,
       });
-
       if (result) {
         setShowZoneModal(false);
         stopDrawing();
         setNewZoneName("");
-        setSelectedZoneIcon("home");
-        Alert.alert("Succès", "Zone de sécurité créée !");
-      } else {
-        Alert.alert("Erreur", "Impossible de créer la zone");
+        Alert.alert("Succès", "Zone créée !");
       }
     } catch (error) {
-      Alert.alert("Erreur", "Erreur lors de la sauvegarde de la zone");
-      console.error("Error saving zone:", error);
-    } finally {
-      setSavingZone(false);
+      Alert.alert("Erreur", "Impossible de créer la zone");
     }
   };
 
-  // Afficher toutes les zones ou filtrer par zone sélectionnée
   const filteredZones = selectedZoneId
     ? zones.filter((zone) => zone.id === selectedZoneId)
     : zones;
 
-  // Optimisation : On mémorise les markers pour éviter qu'ils ne clignotent/reloadent la map
   const markers = useMemo(() => {
     if (isDrawingMode) return null;
-
     return bracelets.map((bracelet, index) => {
       const isSelected = selectedBraceletId === bracelet.id;
       const custom = customizations[bracelet.id];
-
       return (
         <Marker
           key={bracelet.id}
@@ -278,6 +278,15 @@ export default function MapViewScreen() {
     colors.primary,
   ]);
 
+  const getZoneSelectText = () => {
+    if (zones.length === 0) return "Aucune zone";
+    if (selectedZoneId) {
+      const zone = zones.find((z) => z.id === selectedZoneId);
+      return zone ? zone.name : "Vue globale";
+    }
+    return "Vue globale";
+  };
+
   if (loading) {
     return (
       <View
@@ -300,31 +309,25 @@ export default function MapViewScreen() {
           Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_DEFAULT
         }
         mapType={mapType}
-        // Ajout d'une protection pour ne pas ajouter de points si on ne dessine pas
         onPress={(e) => isDrawingMode && addPoint(e.nativeEvent.coordinate)}
         showsUserLocation={true}
         showsMyLocationButton={false}
-        // Ces props permettent de garder le contrôle pendant le dessin
         scrollEnabled={true}
         zoomEnabled={true}
         rotateEnabled={!isDrawingMode}
         pitchEnabled={!isDrawingMode}
       >
-        {/* Affichage optimisé des markers */}
         {markers}
-
-        {/* Zones sauvegardées (filtrées) */}
-        {!isDrawingMode && filteredZones.map((zone) => (
-          <Polygon
-            key={`zone-${zone.id}`}
-            coordinates={zone.coordinates}
-            strokeColor="#4CAF50"
-            fillColor="#4CAF5040"
-            strokeWidth={2}
-          />
-        ))}
-
-        {/* Zone de dessin */}
+        {!isDrawingMode &&
+          filteredZones.map((zone) => (
+            <Polygon
+              key={`zone-${zone.id}`}
+              coordinates={zone.coordinates}
+              strokeColor="#4CAF50"
+              fillColor="#4CAF5040"
+              strokeWidth={2}
+            />
+          ))}
         {isDrawingMode && zoneCoordinates.length > 0 && (
           <>
             <Polygon
@@ -362,101 +365,146 @@ export default function MapViewScreen() {
         )}
       </MapView>
 
-      {/* Top Bar */}
-      <SafeAreaView style={styles.topOverlay} pointerEvents="box-none">
-        <View style={styles.topBarContent}>
-          <TouchableOpacity
+      {/* OVERLAY UI PRINCIPAL
+          pointerEvents="box-none" est crucial pour que les zones vides laissent passer le touch vers la carte
+      */}
+      <SafeAreaView style={styles.overlayContainer} pointerEvents="box-none">
+        {/* Ligne Flexible : [Retour] [Select] [Colonne Droite] */}
+        <View style={styles.topLayoutRow} pointerEvents="box-none">
+          {/* 1. GAUCHE : Retour */}
+          {/* <TouchableOpacity
             style={[styles.circleButton, { backgroundColor: colors.white }]}
             onPress={() => navigation.goBack()}
           >
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
-          {/* Zone Filter Select */}
-          {!isDrawingMode && zones.length > 0 && (
-            <View style={styles.zoneSelectContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.zoneSelectButton,
-                  { borderColor: colors.primary, backgroundColor: colors.lightBg },
-                ]}
-                onPress={() =>
-                  Alert.alert(
-                    "Filtrer par zone",
-                    undefined,
-                    [
-                      ...zones.map((zone) => ({
-                        text: zone.name,
-                        onPress: () => setSelectedZoneId(zone.id),
-                      })),
-                      {
-                        text: "Toutes les zones",
-                        onPress: () => setSelectedZoneId(null),
-                      },
-                      { text: "Annuler", style: "cancel" },
-                    ]
-                  )
-                }
-              >
-                <Ionicons
-                  name={
-                    selectedZoneId
-                      ? (zones.find((z) => z.id === selectedZoneId)?.icon as any)
-                      : "layers-outline"
-                  }
-                  size={18}
-                  color={colors.primary}
-                />
-                <Text
-                  style={[styles.zoneSelectText, { color: colors.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {selectedZoneId
-                    ? zones.find((z) => z.id === selectedZoneId)?.name
-                    : "Toutes"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
+          {/* Settings */}
           <TouchableOpacity
             style={[styles.circleButton, { backgroundColor: colors.white }]}
-            onPress={() => setShowMapTypePicker(true)}
+            onPress={() => router.push("/settings")}
           >
-            <Ionicons name="layers" size={24} color={colors.primary} />
+            <Ionicons
+              name="settings-sharp"
+              size={24}
+              color={colors.textSecondary}
+            />
           </TouchableOpacity>
+
+          {/* 2. MILIEU : Selecteur (Flexible) */}
+          <View style={styles.centerContainer} pointerEvents="box-none">
+            {!isDrawingMode && (
+              <TouchableOpacity
+                style={[
+                  styles.zoneFakeSelect,
+                  { backgroundColor: colors.white },
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setShowZonePicker(true)}
+              >
+                <View style={styles.zoneSelectContent}>
+                  <View
+                    style={[
+                      styles.zoneIconSmall,
+                      {
+                        backgroundColor:
+                          zones.length === 0
+                            ? colors.mediumBg
+                            : colors.primary + "15",
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        selectedZoneId
+                          ? (zones.find((z) => z.id === selectedZoneId)
+                              ?.icon as any)
+                          : "layers"
+                      }
+                      size={14}
+                      color={
+                        zones.length === 0
+                          ? colors.textSecondary
+                          : colors.primary
+                      }
+                    />
+                  </View>
+                  <Text
+                    style={[styles.zoneValue, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {getZoneSelectText()}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-down"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* 3. DROITE : Colonne de boutons (Alignée en haut avec le reste) */}
+          <View style={styles.rightColumn} pointerEvents="box-none">
+            {/* Notification */}
+            <TouchableOpacity
+              style={[styles.circleButton, { backgroundColor: colors.white }]}
+              onPress={() => router.push("/(tabs)/notifications")}
+            >
+              <Ionicons name="notifications" size={24} color={colors.primary} />
+            </TouchableOpacity>
+
+            {/* Settings */}
+            {/* <TouchableOpacity
+              style={[styles.circleButton, { backgroundColor: colors.white }]}
+              onPress={() => router.push("/settings")}
+            >
+              <Ionicons
+                name="settings-sharp"
+                size={24}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity> */}
+
+            {/* Map Type */}
+            <TouchableOpacity
+              style={[styles.circleButton, { backgroundColor: colors.white }]}
+              onPress={() => setShowMapTypePicker(true)}
+            >
+              <Ionicons name="map" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {/* Draw Zone (Espace) */}
+            <TouchableOpacity
+              style={[
+                styles.circleButton,
+                {
+                  backgroundColor: colors.white,
+                  borderColor: isDrawingMode ? colors.danger : "transparent",
+                  borderWidth: isDrawingMode ? 2 : 0,
+                  // marginTop: 8, // Petit séparateur visuel
+                },
+              ]}
+              onPress={toggleDrawingMode}
+            >
+              <Ionicons
+                name={isDrawingMode ? "close" : "shield-checkmark"}
+                size={24}
+                color={isDrawingMode ? colors.danger : colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
-      {/* Right Tools */}
-      <View style={[styles.rightTools, { top: insets.top + 80 }]}>
-        <TouchableOpacity
-          style={[
-            styles.toolButton,
-            { backgroundColor: isDrawingMode ? colors.primary : colors.white },
-          ]}
-          onPress={toggleDrawingMode}
-        >
-          <Ionicons
-            name="shapes"
-            size={24}
-            color={isDrawingMode ? colors.white : colors.textPrimary}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Bottom Container */}
       <View style={[styles.bottomContainer, { bottom: insets.bottom + 20 }]}>
         {isDrawingMode ? (
           <View
             style={[styles.drawingControls, { backgroundColor: colors.white }]}
           >
             <View style={styles.drawingHeader}>
-              <Ionicons
-                name="create-outline"
-                size={20}
-                color={colors.primary}
-              />
+              <Ionicons name="create" size={20} color={colors.primary} />
               <Text
                 style={{
                   color: colors.textPrimary,
@@ -541,7 +589,18 @@ export default function MapViewScreen() {
         isDark={isDark}
       />
 
-      {/* Modal Création Zone */}
+      <ZonePickerTopSheet
+        isVisible={showZonePicker}
+        onClose={() => setShowZonePicker(false)}
+        zones={zones}
+        selectedZoneId={selectedZoneId}
+        onSelectZone={(id) => {
+          setSelectedZoneId(id);
+          setShowZonePicker(false);
+        }}
+        isDark={isDark}
+      />
+
       <Modal
         visible={showZoneModal}
         transparent={true}
@@ -671,65 +730,66 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   drawingPointCenter: { width: 8, height: 8, borderRadius: 4 },
-  topOverlay: {
+
+  // CONTAINER UI GLOBAL (SafeArea)
+  overlayContainer: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 10, // Petit espace en plus du SafeArea
   },
-  topBarContent: {
-    flex: 1,
+
+  // LIGNE PRINCIPALE DE LAYOUT
+  topLayoutRow: {
     flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
+    alignItems: "flex-start", // Important pour que la colonne droite descende
+    gap: 12, // Espace horizontal entre les 3 blocs
   },
-  zoneFilterScroll: {
-    flex: 1,
+
+  // BLOC SELECTEUR (Au milieu, flexible)
+  centerContainer: {
+    flex: 1, // Prend toute la place restante
   },
-  zonePill: {
+  zoneFakeSelect: {
     flexDirection: "row",
     alignItems: "center",
+    height: 44, // Alignement exact avec les boutons
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    gap: 6,
-    minHeight: 36,
+    borderRadius: 22,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  zonePillText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  zoneSelectContainer: {
+  zoneSelectContent: {
     flex: 1,
-    marginHorizontal: 8,
-  },
-  zoneSelectButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    gap: 6,
+    gap: 10,
   },
-  zoneSelectText: {
+  zoneIconSmall: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  zoneValue: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     flex: 1,
   },
-  rightTools: { position: "absolute", right: 16, gap: 12 },
+
+  // BLOC DROITE (Colonne de boutons)
+  rightColumn: {
+    flexDirection: "column",
+    gap: 12, // Espace vertical entre les boutons
+  },
+
+  // BOUTONS RONDS
   circleButton: {
     width: 44,
     height: 44,
@@ -742,18 +802,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  toolButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
+
   bottomContainer: { position: "absolute", left: 0, right: 0, height: 140 },
   drawingControls: {
     marginHorizontal: 16,

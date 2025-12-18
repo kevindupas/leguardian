@@ -8,9 +8,8 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  Modal,
-  FlatList,
   Switch,
+  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -62,106 +61,106 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.white }]}>
+        <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.white }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+      <View style={[styles.header, { borderBottomColor: colors.lightBg }]}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
           Paramètres
         </Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Bracelet Selector */}
       {bracelets.length > 1 && (
-        <View style={[styles.braceletSelector, { borderBottomColor: colors.lightBg }]}>
-          <FlatList
-            data={bracelets}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => setSelectedBraceletId(item.id)}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={[styles.braceletScroll, { borderBottomColor: colors.lightBg }]}
+          contentContainerStyle={styles.braceletScrollContent}
+        >
+          {bracelets.map((bracelet) => (
+            <TouchableOpacity
+              key={bracelet.id}
+              onPress={() => setSelectedBraceletId(bracelet.id)}
+              style={[
+                styles.braceletBadge,
+                {
+                  backgroundColor:
+                    selectedBraceletId === bracelet.id
+                      ? colors.primary
+                      : colors.lightBg,
+                },
+              ]}
+            >
+              <Text
                 style={[
-                  styles.braceletTab,
+                  styles.braceletBadgeText,
                   {
-                    backgroundColor:
-                      selectedBraceletId === item.id
-                        ? colors.primary
-                        : colors.lightBg,
+                    color:
+                      selectedBraceletId === bracelet.id
+                        ? "white"
+                        : colors.textPrimary,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.braceletTabText,
-                    {
-                      color:
-                        selectedBraceletId === item.id
-                          ? "white"
-                          : colors.textPrimary,
-                    },
-                  ]}
-                >
-                  {item.alias || item.name}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
+                {bracelet.alias || bracelet.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       )}
 
-      {/* Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.tabsContainer, { borderBottomColor: colors.lightBg }]}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
-      >
-        <TabButton
+      {/* Tab Navigation */}
+      <View style={[styles.tabNav, { backgroundColor: colors.lightBg }]}>
+        <TabNavButton
           icon="map"
           label="Zones"
           active={activeTab === "zones"}
           onPress={() => setActiveTab("zones")}
           colors={colors}
         />
-        <TabButton
+        <TabNavButton
           icon="share-social"
           label="Partage"
           active={activeTab === "sharing"}
           onPress={() => setActiveTab("sharing")}
           colors={colors}
         />
-        <TabButton
+        <TabNavButton
           icon="notifications"
-          label="Notifications"
+          label="Alertes"
           active={activeTab === "notifications"}
           onPress={() => setActiveTab("notifications")}
           colors={colors}
         />
-      </ScrollView>
+      </View>
 
       {/* Content */}
-      <ScrollView
+      <ScrollView 
         style={styles.content}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
+        contentContainerStyle={styles.contentInner}
+        showsVerticalScrollIndicator={false}
       >
         {activeTab === "zones" && (
-          <ZonesSection zones={zones} colors={colors} braceletId={selectedBraceletId} />
+          <ZonesContent zones={zones} colors={colors} />
         )}
         {activeTab === "sharing" && (
-          <SharingSection
+          <SharingContent
             sharedGuardians={sharedGuardians}
             pendingInvitations={pendingInvitations}
             colors={colors}
@@ -169,27 +168,23 @@ export default function SettingsScreen() {
             onAccept={acceptInvitation}
             onDecline={declineInvitation}
             onRevoke={revokeAccess}
-            braceletId={selectedBraceletId}
           />
         )}
         {activeTab === "notifications" && (
-          <NotificationsSection colors={colors} />
+          <NotificationsContent colors={colors} />
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function TabButton({ icon, label, active, onPress, colors }: any) {
+function TabNavButton({ icon, label, active, onPress, colors }: any) {
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
-        styles.tab,
-        active && {
-          borderBottomColor: colors.primary,
-          borderBottomWidth: 2,
-        },
+        styles.tabNavButton,
+        active && { backgroundColor: colors.white },
       ]}
     >
       <Ionicons
@@ -199,10 +194,8 @@ function TabButton({ icon, label, active, onPress, colors }: any) {
       />
       <Text
         style={[
-          styles.tabText,
-          {
-            color: active ? colors.primary : colors.textSecondary,
-          },
+          styles.tabNavLabel,
+          { color: active ? colors.primary : colors.textSecondary },
         ]}
       >
         {label}
@@ -211,47 +204,51 @@ function TabButton({ icon, label, active, onPress, colors }: any) {
   );
 }
 
-function ZonesSection({ zones, colors, braceletId }: any) {
-  const handleDeleteZone = (zoneId: number, zoneName: string) => {
-    Alert.alert(
-      "Supprimer la zone",
-      `Êtes-vous sûr de vouloir supprimer "${zoneName}" ?`,
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          onPress: () => {
-            // TODO: Call delete zone API
-            console.log("Delete zone:", zoneId);
-            Alert.alert("Succès", "Zone supprimée");
-          },
-          style: "destructive",
-        },
-      ]
-    );
-  };
-
+function ZonesContent({ zones, colors }: any) {
   return (
     <View>
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Zones de sécurité ({zones.length})
-      </Text>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+          Zones de sécurité
+        </Text>
+        <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+          <Text style={styles.badgeNumber}>{zones.length}</Text>
+        </View>
+      </View>
 
-      {zones.map((zone: any) => (
-        <View
-          key={zone.id}
-          style={[styles.card, { backgroundColor: colors.lightBg }]}
-        >
-          <View style={styles.zoneHeader}>
-            <View style={styles.zoneInfo}>
-              <Ionicons name={zone.icon} size={24} color={colors.primary} />
+      {zones.length === 0 ? (
+        <View style={[styles.emptyState, { backgroundColor: colors.lightBg }]}>
+          <Ionicons name="map-outline" size={48} color={colors.textSecondary} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Aucune zone créée
+          </Text>
+        </View>
+      ) : (
+        zones.map((zone: any) => (
+          <View
+            key={zone.id}
+            style={[styles.zoneItem, { backgroundColor: colors.lightBg }]}
+          >
+            <View style={styles.zoneLeft}>
+              <View
+                style={[
+                  styles.zoneIcon,
+                  { backgroundColor: colors.primary + "20" },
+                ]}
+              >
+                <Ionicons
+                  name={zone.icon}
+                  size={24}
+                  color={colors.primary}
+                />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.zoneName, { color: colors.textPrimary }]}>
                   {zone.name}
                 </Text>
                 <Text
                   style={[
-                    styles.zoneSubtitle,
+                    styles.zonePoints,
                     { color: colors.textSecondary },
                   ]}
                 >
@@ -260,34 +257,37 @@ function ZonesSection({ zones, colors, braceletId }: any) {
               </View>
             </View>
             <View style={styles.zoneActions}>
-              <TouchableOpacity
-                onPress={() => {
-                  // TODO: Navigate to edit zone
-                  Alert.alert("À venir", "Édition de zone non implémentée");
-                }}
-              >
-                <Ionicons name="pencil" size={20} color={colors.primary} />
+              <TouchableOpacity style={styles.actionBtn}>
+                <Ionicons name="pencil" size={18} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => handleDeleteZone(zone.id, zone.name)}
+                style={styles.actionBtn}
+                onPress={() =>
+                  Alert.alert(
+                    "Supprimer",
+                    `Êtes-vous sûr de vouloir supprimer "${zone.name}" ?`,
+                    [
+                      { text: "Annuler", style: "cancel" },
+                      {
+                        text: "Supprimer",
+                        onPress: () => console.log("Delete"),
+                        style: "destructive",
+                      },
+                    ]
+                  )
+                }
               >
-                <Ionicons name="trash" size={20} color={colors.danger} />
+                <Ionicons name="trash" size={18} color="#ef4444" />
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      ))}
-
-      {zones.length === 0 && (
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          Aucune zone créée
-        </Text>
+        ))
       )}
     </View>
   );
 }
 
-function SharingSection({
+function SharingContent({
   sharedGuardians,
   pendingInvitations,
   colors,
@@ -295,7 +295,6 @@ function SharingSection({
   onAccept,
   onDecline,
   onRevoke,
-  braceletId,
 }: any) {
   const [email, setEmail] = useState("");
   const [sharing, setSharing] = useState(false);
@@ -306,8 +305,8 @@ function SharingSection({
     try {
       await onShare(email);
       setEmail("");
-      Alert.alert("Succès", "Invitation envoyée à " + email);
-    } catch (error) {
+      Alert.alert("Succès", "Invitation envoyée");
+    } catch {
       Alert.alert("Erreur", "Impossible de partager");
     } finally {
       setSharing(false);
@@ -317,14 +316,18 @@ function SharingSection({
   return (
     <View>
       {/* Share Form */}
-      <View style={[styles.shareForm, { backgroundColor: colors.lightBg }]}>
-        <Text style={[styles.formTitle, { color: colors.textPrimary }]}>
+      <View style={[styles.shareCard, { backgroundColor: colors.lightBg }]}>
+        <Text style={[styles.shareTitle, { color: colors.textPrimary }]}>
           Partager ce bracelet
         </Text>
         <TextInput
           style={[
-            styles.input,
-            { color: colors.textPrimary, borderColor: colors.primary },
+            styles.shareInput,
+            {
+              color: colors.textPrimary,
+              borderColor: colors.primary,
+              backgroundColor: colors.white,
+            },
           ]}
           placeholder="email@exemple.com"
           placeholderTextColor={colors.textSecondary}
@@ -336,7 +339,7 @@ function SharingSection({
           onPress={handleShare}
           disabled={sharing || !email.trim()}
           style={[
-            styles.shareButton,
+            styles.shareBtn,
             {
               backgroundColor: colors.primary,
               opacity: sharing || !email.trim() ? 0.5 : 1,
@@ -346,42 +349,42 @@ function SharingSection({
           {sharing ? (
             <ActivityIndicator color="white" size="small" />
           ) : (
-            <Text style={styles.shareButtonText}>Envoyer invitation</Text>
+            <Text style={styles.shareBtnText}>Envoyer</Text>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* Pending Invitations */}
+      {/* Pending */}
       {pendingInvitations.length > 0 && (
         <View style={{ marginTop: 20 }}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             Invitations reçues
           </Text>
-          {pendingInvitations.map((invitation: any) => (
+          {pendingInvitations.map((inv: any) => (
             <View
-              key={invitation.bracelet_id}
-              style={[styles.card, { backgroundColor: colors.lightBg }]}
+              key={inv.bracelet_id}
+              style={[styles.inviteCard, { backgroundColor: colors.lightBg }]}
             >
-              <Text style={[styles.invitationText, { color: colors.textPrimary }]}>
-                {invitation.bracelet_name}
-              </Text>
-              <Text style={[styles.invitationFrom, { color: colors.textSecondary }]}>
-                De: {invitation.shared_by || "Utilisateur"}
-              </Text>
-              <View style={styles.invitationActions}>
+              <View>
+                <Text style={[styles.inviteTitle, { color: colors.textPrimary }]}>
+                  {inv.bracelet_name}
+                </Text>
+                <Text style={[styles.inviteFrom, { color: colors.textSecondary }]}>
+                  De {inv.shared_by}
+                </Text>
+              </View>
+              <View style={styles.inviteActions}>
                 <TouchableOpacity
-                  onPress={() => onAccept(invitation.bracelet_id)}
+                  onPress={() => onAccept(inv.bracelet_id)}
                   style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
                 >
-                  <Text style={styles.btnText}>Accepter</Text>
+                  <Ionicons name="checkmark" size={18} color="white" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => onDecline(invitation.bracelet_id)}
-                  style={[styles.declineBtn, { backgroundColor: colors.lightBg }]}
+                  onPress={() => onDecline(inv.bracelet_id)}
+                  style={[styles.declineBtn, { borderColor: colors.danger }]}
                 >
-                  <Text style={[styles.btnText, { color: colors.danger }]}>
-                    Refuser
-                  </Text>
+                  <Ionicons name="close" size={18} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -392,65 +395,75 @@ function SharingSection({
       {/* Shared With */}
       {sharedGuardians.length > 0 && (
         <View style={{ marginTop: 20 }}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Partagé avec ({sharedGuardians.length})
-          </Text>
-          {sharedGuardians.map((guardian: any) => (
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              Partagé avec
+            </Text>
+            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.badgeNumber}>{sharedGuardians.length}</Text>
+            </View>
+          </View>
+          {sharedGuardians.map((g: any) => (
             <View
-              key={guardian.id}
-              style={[styles.card, { backgroundColor: colors.lightBg }]}
+              key={g.id}
+              style={[
+                styles.guardianCard,
+                { backgroundColor: colors.lightBg },
+              ]}
             >
-              <View style={styles.guardianInfo}>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[styles.guardianName, { color: colors.textPrimary }]}
-                  >
-                    {guardian.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.guardianEmail,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {guardian.email}
+              <View style={styles.guardianLeft}>
+                <View
+                  style={[
+                    styles.guardianAvatar,
+                    { backgroundColor: colors.primary + "20" },
+                  ]}
+                >
+                  <Text style={[styles.avatarText, { color: colors.primary }]}>
+                    {g.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Révoquer l'accès",
-                      `Êtes-vous sûr de révoquer l'accès à ${guardian.name} ?`,
-                      [
-                        { text: "Annuler", style: "cancel" },
-                        {
-                          text: "Révoquer",
-                          onPress: () => onRevoke(guardian.id),
-                          style: "destructive",
-                        },
-                      ]
-                    )
-                  }
-                >
-                  <Ionicons name="close" size={24} color={colors.danger} />
-                </TouchableOpacity>
+                <View>
+                  <Text style={[styles.guardianName, { color: colors.textPrimary }]}>
+                    {g.name}
+                  </Text>
+                  <Text style={[styles.guardianEmail, { color: colors.textSecondary }]}>
+                    {g.email}
+                  </Text>
+                </View>
               </View>
+              <TouchableOpacity
+                onPress={() =>
+                  Alert.alert("Révoquer", `Révoquer l'accès à ${g.name} ?`, [
+                    { text: "Annuler", style: "cancel" },
+                    {
+                      text: "Révoquer",
+                      onPress: () => onRevoke(g.id),
+                      style: "destructive",
+                    },
+                  ])
+                }
+              >
+                <Ionicons name="close-circle" size={24} color="#ef4444" />
+              </TouchableOpacity>
             </View>
           ))}
         </View>
       )}
 
       {sharedGuardians.length === 0 && pendingInvitations.length === 0 && (
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          Aucun partage
-        </Text>
+        <View style={[styles.emptyState, { backgroundColor: colors.lightBg }]}>
+          <Ionicons name="share-social-outline" size={48} color={colors.textSecondary} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Pas de partage
+          </Text>
+        </View>
       )}
     </View>
   );
 }
 
-function NotificationsSection({ colors }: any) {
-  const [notifications, setNotifications] = useState({
+function NotificationsContent({ colors }: any) {
+  const [notifs, setNotifs] = useState({
     zoneEntry: true,
     zoneExit: true,
     emergencyAlert: true,
@@ -460,85 +473,74 @@ function NotificationsSection({ colors }: any) {
   return (
     <View>
       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Alertes et notifications
+        Notifications et alertes
       </Text>
 
-      <NotificationToggle
-        icon="map"
-        title="Entrée zone"
-        subtitle="Alerte quand le bracelet entre dans une zone"
-        value={notifications.zoneEntry}
-        onToggle={(val) =>
-          setNotifications({ ...notifications, zoneEntry: val })
-        }
-        colors={colors}
-      />
-
-      <NotificationToggle
-        icon="exit"
-        title="Sortie zone"
-        subtitle="Alerte quand le bracelet quitte une zone"
-        value={notifications.zoneExit}
-        onToggle={(val) =>
-          setNotifications({ ...notifications, zoneExit: val })
-        }
-        colors={colors}
-      />
-
-      <NotificationToggle
-        icon="alert-circle"
-        title="Alerte d'urgence"
-        subtitle="Notification en cas d'urgence"
-        value={notifications.emergencyAlert}
-        onToggle={(val) =>
-          setNotifications({ ...notifications, emergencyAlert: val })
-        }
-        colors={colors}
-      />
-
-      <NotificationToggle
-        icon="share-social"
-        title="Partage de bracelet"
-        subtitle="Notification quand quelqu'un partage un bracelet"
-        value={notifications.braceletSharing}
-        onToggle={(val) =>
-          setNotifications({ ...notifications, braceletSharing: val })
-        }
-        colors={colors}
-      />
-    </View>
-  );
-}
-
-function NotificationToggle({ icon, title, subtitle, value, onToggle, colors }: any) {
-  return (
-    <View
-      style={[styles.card, { backgroundColor: colors.lightBg, marginBottom: 12 }]}
-    >
-      <View style={styles.notificationRow}>
-        <View style={styles.notificationInfo}>
-          <View style={styles.notificationIcon}>
-            <Ionicons name={icon} size={24} color={colors.primary} />
+      {[
+        {
+          key: "zoneEntry",
+          icon: "arrow-forward",
+          title: "Entrée de zone",
+          desc: "Alerte quand le bracelet entre dans une zone",
+        },
+        {
+          key: "zoneExit",
+          icon: "arrow-back",
+          title: "Sortie de zone",
+          desc: "Alerte quand le bracelet quitte une zone",
+        },
+        {
+          key: "emergencyAlert",
+          icon: "alert-circle",
+          title: "Alerte d'urgence",
+          desc: "Notification en cas d'urgence",
+        },
+        {
+          key: "braceletSharing",
+          icon: "share-social",
+          title: "Partage de bracelet",
+          desc: "Quand quelqu'un partage un bracelet",
+        },
+      ].map((item: any) => (
+        <View
+          key={item.key}
+          style={[styles.notifItem, { backgroundColor: colors.lightBg }]}
+        >
+          <View style={styles.notifLeft}>
+            <View
+              style={[
+                styles.notifIcon,
+                { backgroundColor: colors.primary + "20" },
+              ]}
+            >
+              <Ionicons
+                name={item.icon}
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.notifTitle, { color: colors.textPrimary }]}>
+                {item.title}
+              </Text>
+              <Text style={[styles.notifDesc, { color: colors.textSecondary }]}>
+                {item.desc}
+              </Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.notificationTitle, { color: colors.textPrimary }]}>
-              {title}
-            </Text>
-            <Text style={[styles.notificationSubtitle, { color: colors.textSecondary }]}>
-              {subtitle}
-            </Text>
-          </View>
+          <Switch
+            value={notifs[item.key as any]}
+            onValueChange={(val) =>
+              setNotifs({ ...notifs, [item.key]: val })
+            }
+            trackColor={{
+              false: colors.lightBg,
+              true: colors.primary + "40",
+            }}
+            thumbColor={notifs[item.key as any] ? colors.primary : colors.textSecondary}
+          />
         </View>
-        <Switch
-          value={value}
-          onValueChange={onToggle}
-          trackColor={{
-            false: colors.lightBg,
-            true: colors.primary + "40",
-          }}
-          thumbColor={value ? colors.primary : colors.textSecondary}
-        />
-      </View>
+      ))}
     </View>
   );
 }
@@ -553,176 +555,253 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
   },
-  braceletSelector: {
+  braceletScroll: {
     borderBottomWidth: 1,
+  },
+  braceletScrollContent: {
+    paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 8,
   },
-  braceletTab: {
-    paddingHorizontal: 12,
+  braceletBadge: {
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 20,
   },
-  braceletTabText: {
+  braceletBadgeText: {
     fontSize: 13,
     fontWeight: "600",
   },
-  tabsContainer: {
-    borderBottomWidth: 1,
-    paddingTop: 12,
+  tabNav: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    gap: 8,
   },
-  tab: {
+  tabNavButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    marginRight: 20,
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 12,
     gap: 6,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
   },
-  tabText: {
-    fontSize: 14,
+  tabNavLabel: {
+    fontSize: 13,
     fontWeight: "600",
   },
   content: {
     flex: 1,
   },
+  contentInner: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
-    marginBottom: 12,
   },
-  card: {
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    minWidth: 28,
+    alignItems: "center",
   },
-  zoneHeader: {
+  badgeNumber: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  emptyState: {
+    borderRadius: 16,
+    padding: 32,
+    alignItems: "center",
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  zoneItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
   },
-  zoneInfo: {
+  zoneLeft: {
     flexDirection: "row",
     gap: 12,
     flex: 1,
+    alignItems: "center",
+  },
+  zoneIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
   zoneName: {
     fontSize: 15,
     fontWeight: "600",
   },
-  zoneSubtitle: {
+  zonePoints: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
   },
   zoneActions: {
     flexDirection: "row",
+    gap: 8,
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  shareCard: {
+    borderRadius: 16,
+    padding: 16,
     gap: 12,
   },
-  shareForm: {
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-  },
-  formTitle: {
+  shareTitle: {
     fontSize: 15,
     fontWeight: "600",
   },
-  input: {
+  shareInput: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 14,
   },
-  shareButton: {
-    borderRadius: 8,
+  shareBtn: {
+    borderRadius: 10,
     paddingVertical: 12,
     alignItems: "center",
   },
-  shareButtonText: {
+  shareBtnText: {
     color: "white",
     fontWeight: "600",
   },
-  invitationText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  invitationFrom: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  invitationActions: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 10,
-  },
-  acceptBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  declineBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  btnText: {
-    color: "white",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-  guardianInfo: {
+  inviteCard: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  inviteTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  inviteFrom: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  inviteActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  acceptBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  declineBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+  },
+  guardianCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  guardianLeft: {
+    flexDirection: "row",
+    gap: 12,
+    flex: 1,
+    alignItems: "center",
+  },
+  guardianAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: "700",
   },
   guardianName: {
     fontSize: 15,
     fontWeight: "600",
   },
   guardianEmail: {
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 4,
   },
-  notificationRow: {
+  notifItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
   },
-  notificationInfo: {
+  notifLeft: {
     flexDirection: "row",
     gap: 12,
     flex: 1,
     alignItems: "center",
   },
-  notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+  notifIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
-  notificationTitle: {
+  notifTitle: {
     fontSize: 15,
     fontWeight: "600",
   },
-  notificationSubtitle: {
+  notifDesc: {
     fontSize: 12,
-    marginTop: 2,
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: "center",
-    paddingVertical: 20,
-  },
-  danger: {
-    color: "#ef4444",
+    marginTop: 4,
   },
 });

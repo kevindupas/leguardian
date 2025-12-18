@@ -25,6 +25,10 @@ class Bracelet extends Model
         'last_longitude',
         'last_accuracy',
         'last_location_update',
+        'emergency_mode',
+        'last_imu_data',
+        'last_network_data',
+        'last_imu_update',
     ];
 
     protected $casts = [
@@ -36,6 +40,10 @@ class Bracelet extends Model
         'last_longitude' => 'float',
         'last_accuracy' => 'integer',
         'last_location_update' => 'datetime',
+        'emergency_mode' => 'boolean',
+        'last_imu_data' => 'array',
+        'last_network_data' => 'array',
+        'last_imu_update' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

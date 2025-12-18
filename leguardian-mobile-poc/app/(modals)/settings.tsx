@@ -20,6 +20,7 @@ import { getColors } from "../../constants/Colors";
 import { braceletService } from "../../services/braceletService";
 import { useSafetyZonesContext } from "../../contexts/SafetyZonesContext";
 import { useBraceletSharing } from "../../hooks/useBraceletSharing";
+import { SettingsZonesTab } from "../../components/SettingsZonesTab";
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -238,7 +239,12 @@ export default function SettingsScreen() {
         {/* SECTION 3: CONTENU DYNAMIQUE */}
         <View style={styles.contentContainer}>
           {activeTab === "zones" && (
-            <ZonesContent zones={zones} colors={colors} />
+            <SettingsZonesTab
+              braceletId={selectedBraceletId}
+              zones={zones}
+              colors={colors}
+              sharedGuardians={sharedGuardians}
+            />
           )}
           {activeTab === "sharing" && (
             <SharingContent
@@ -261,88 +267,6 @@ export default function SettingsScreen() {
 }
 
 // --- SOUS-COMPOSANTS ---
-
-function ZonesContent({ zones, colors }: any) {
-  return (
-    <View>
-      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-        ZONES DE SÉCURITÉ ({zones.length})
-      </Text>
-
-      {zones.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: colors.white }]}>
-          <View
-            style={[styles.emptyIconBg, { backgroundColor: colors.lightBg }]}
-          >
-            <Ionicons
-              name="map-outline"
-              size={32}
-              color={colors.textSecondary}
-            />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            Aucune zone définie
-          </Text>
-          <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-            Créez des zones sûres sur la carte pour être alerté des entrées et
-            sorties.
-          </Text>
-        </View>
-      ) : (
-        <View style={[styles.cardGroup, { backgroundColor: colors.white }]}>
-          {zones.map((zone: any, index: number) => (
-            <View key={zone.id}>
-              <View style={styles.listItem}>
-                <View
-                  style={[
-                    styles.listIcon,
-                    { backgroundColor: colors.primary + "15" },
-                  ]}
-                >
-                  <Ionicons
-                    name={zone.icon || "navigate"}
-                    size={20}
-                    color={colors.primary}
-                  />
-                </View>
-                <View style={styles.listTextContainer}>
-                  <Text
-                    style={[styles.listTitle, { color: colors.textPrimary }]}
-                  >
-                    {zone.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.listSubtitle,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {zone.coordinates?.length || 0} points de contrôle
-                  </Text>
-                </View>
-                <TouchableOpacity style={styles.deleteAction}>
-                  <Ionicons
-                    name="trash-outline"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
-              {index < zones.length - 1 && (
-                <View
-                  style={[
-                    styles.separator,
-                    { backgroundColor: colors.lightBg },
-                  ]}
-                />
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-}
 
 function SharingContent({
   sharedGuardians,

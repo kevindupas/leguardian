@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 interface Zone {
   id: number;
   name: string;
-  icon: string;
+  icon?: string | null;
 }
 
 interface ZonePickerTopSheetProps {

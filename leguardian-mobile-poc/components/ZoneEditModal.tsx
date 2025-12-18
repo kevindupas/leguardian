@@ -22,7 +22,9 @@ const ZONE_ICONS = [
   'leaf',
   'bicycle',
   'navigate',
-];
+] as const;
+
+type ZoneIconType = typeof ZONE_ICONS[number];
 
 interface Coordinate {
   latitude: number;
@@ -34,7 +36,7 @@ interface ZoneEditModalProps {
   zone?: {
     id: number;
     name: string;
-    icon: string;
+    icon?: string | null;
     coordinates: Coordinate[];
   };
   colors: any;
@@ -59,7 +61,7 @@ export const ZoneEditModal: React.FC<ZoneEditModalProps> = ({
   useEffect(() => {
     if (zone) {
       setZoneName(zone.name);
-      setSelectedIcon(zone.icon);
+      setSelectedIcon(zone.icon || 'home');
       setCoordinates(zone.coordinates);
       setIsDrawing(false);
     } else {
@@ -209,7 +211,7 @@ export const ZoneEditModal: React.FC<ZoneEditModalProps> = ({
                   ]}
                 >
                   <Ionicons
-                    name={icon as any}
+                    name={icon as ZoneIconType}
                     size={24}
                     color={selectedIcon === icon ? colors.primary : colors.textSecondary}
                   />

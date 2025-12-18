@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import api from './api';
 
 export interface ZonePermissions {
   can_view: boolean;
@@ -31,7 +31,7 @@ class ZoneShareService {
     guardianId: number,
     permissions: ZonePermissions
   ): Promise<ZoneShare> {
-    const response = await apiClient.post(
+    const response = await api.post(
       `/api/mobile/bracelets/${braceletId}/zones/${zoneId}/share`,
       {
         guardian_id: guardianId,
@@ -48,7 +48,7 @@ class ZoneShareService {
     braceletId: number,
     zoneId: number
   ): Promise<SharedGuardian[]> {
-    const response = await apiClient.get(
+    const response = await api.get(
       `/api/mobile/bracelets/${braceletId}/zones/${zoneId}/shared-guardians`
     );
     return response.data;
@@ -63,7 +63,7 @@ class ZoneShareService {
     guardianId: number,
     permissions: ZonePermissions
   ): Promise<ZoneShare> {
-    const response = await apiClient.put(
+    const response = await api.put(
       `/api/mobile/bracelets/${braceletId}/zones/${zoneId}/shared-guardians/${guardianId}`,
       permissions
     );
@@ -78,7 +78,7 @@ class ZoneShareService {
     zoneId: number,
     guardianId: number
   ): Promise<boolean> {
-    await apiClient.delete(
+    await api.delete(
       `/api/mobile/bracelets/${braceletId}/zones/${zoneId}/shared-guardians/${guardianId}`
     );
     return true;

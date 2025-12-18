@@ -73,7 +73,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.white }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.lightBg }]}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
@@ -87,8 +87,8 @@ export default function SettingsScreen() {
 
       {/* Bracelet Selector */}
       {bracelets.length > 1 && (
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={[styles.braceletScroll, { borderBottomColor: colors.lightBg }]}
           contentContainerStyle={styles.braceletScrollContent}
@@ -151,7 +151,7 @@ export default function SettingsScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentInner}
         showsVerticalScrollIndicator={false}

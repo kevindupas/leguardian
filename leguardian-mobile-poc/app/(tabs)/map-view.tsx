@@ -382,7 +382,7 @@ export default function MapViewScreen() {
           {/* Settings */}
           <TouchableOpacity
             style={[styles.circleButton, { backgroundColor: colors.white }]}
-            onPress={() => router.push("/settings")}
+            onPress={() => router.push("/(modals)/settings")}
           >
             <Ionicons
               name="settings-sharp"

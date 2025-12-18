@@ -35,36 +35,6 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 bool imuReady = false;
 
-// LEDs NeoPixel
-Adafruit_NeoPixel leds(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
-bool ledModemState = false;
-bool ledGpsState = false;
-unsigned long lastModemToggle = 0;
-unsigned long lastGpsToggle = 0;
-
-// Emergency mode tracking
-bool emergencyMode = false;
-unsigned long buttonPressStartTime = 0;
-#define BUTTON_PRESS_THRESHOLD 3000  // 3 seconds to toggle mode
-
-// Bouton
-bool lastButtonState = HIGH;
-unsigned long lastButtonPress = 0;
-#define DEBOUNCE_DELAY 50
-enum LEDMode
-{
-  LED_OFF,
-  LED_BLINKING,
-  LED_NORMAL
-};
-LEDMode currentLedMode = LED_OFF;
-
-// HTTP Configuration
-#define SERVER_URL "your-server.com" // À remplacer par votre URL
-#define SERVER_PORT 80
-unsigned long lastDataSend = 0;
-#define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
-
 // Structure pour stocker les données GPS
 struct GPSData
 {
@@ -89,6 +59,53 @@ struct IMUData
   bool available;
 };
 
+// LEDs NeoPixel
+Adafruit_NeoPixel leds(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+bool ledModemState = false;
+bool ledGpsState = false;
+unsigned long lastModemToggle = 0;
+unsigned long lastGpsToggle = 0;
+
+// Emergency mode tracking
+bool emergencyMode = false;
+unsigned long buttonPressStartTime = 0;
+#define BUTTON_PRESS_THRESHOLD 3000  // 3 seconds to toggle mode
+
+// Data collection and transmission
+GPSData currentGpsData = {0, 0, 0, 0, "", "", 0, "", "", ""};
+IMUData currentImuData = {0, 0, 0, 0, 0, 0, 0, false};
+unsigned long lastDataCollection = 0;
+unsigned long lastDataTransmission = 0;
+#define DATA_COLLECTION_INTERVAL 5000  // Collect data every 5 seconds
+#define SEND_INTERVAL_NORMAL 180000    // Send every 3 minutes in normal mode
+#define SEND_INTERVAL_EMERGENCY 60000  // Send every 1 minute in emergency mode
+
+// Data ready flags
+bool gpsDataReady = false;
+bool networkDataReady = false;
+bool imuDataReady = false;
+
+// Bracelet identification
+#define BRACELET_UNIQUE_CODE "ESP32_A7670E_001"  // TODO: Use IMEI or generate UUID
+
+// Bouton
+bool lastButtonState = HIGH;
+unsigned long lastButtonPress = 0;
+#define DEBOUNCE_DELAY 50
+enum LEDMode
+{
+  LED_OFF,
+  LED_BLINKING,
+  LED_NORMAL
+};
+LEDMode currentLedMode = LED_OFF;
+
+// HTTP Configuration
+#define SERVER_URL "your-server.com" // À remplacer par votre URL
+#define SERVER_PORT 80
+unsigned long lastDataSend = 0;
+#define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
+
 // Fonction vibreur
 void vibrate(int duration)
 {
@@ -101,6 +118,12 @@ void vibrate(int duration)
 String buildJsonPayload(const GPSData &gps, const IMUData &imu)
 {
   String json = "{";
+
+  // Timestamp
+  json += "\"timestamp\":" + String(millis()) + ",";
+
+  // Emergency mode flag
+  json += "\"emergency_mode\":" + String(emergencyMode ? "true" : "false") + ",";
 
   // Données GPS
   json += "\"gps\":{";
@@ -129,6 +152,10 @@ String buildJsonPayload(const GPSData &gps, const IMUData &imu)
     json += "\"temperature\":" + String(imu.temperature, 2);
     json += "}";
   }
+  else
+  {
+    json += "\"imu\":null";
+  }
 
   json += "}";
   return json;
@@ -147,17 +174,26 @@ bool sendDataViaHTTP(const String &jsonData)
 
   SerialMon.println("✓ Connecté au serveur");
 
-  // Construire la requête HTTP POST
-  String request = "POST /api/data HTTP/1.1\r\n";
+  // Construire la requête HTTP POST avec header d'identification
+  String endpoint = emergencyMode ? "/api/devices/danger/update" : "/api/devices/heartbeat";
+  String request = "POST " + endpoint + " HTTP/1.1\r\n";
   request += "Host: " + String(SERVER_URL) + "\r\n";
   request += "Content-Type: application/json\r\n";
   request += "Content-Length: " + String(jsonData.length()) + "\r\n";
+  request += "X-Bracelet-ID: " + String(BRACELET_UNIQUE_CODE) + "\r\n";
   request += "Connection: close\r\n";
   request += "\r\n";
   request += jsonData;
 
   // Envoyer la requête
   client.print(request);
+
+  // LED vert clignote pendant l'envoi
+  leds.setPixelColor(0, leds.Color(0, 255, 0));  // Green
+  leds.show();
+  delay(100);
+  leds.setPixelColor(0, 0);  // Off
+  leds.show();
 
   // Attendre la réponse
   unsigned long timeout = millis() + 5000; // Timeout 5 secondes
@@ -174,6 +210,14 @@ bool sendDataViaHTTP(const String &jsonData)
       {
         SerialMon.println("✓ Données envoyées avec succès");
         vibrate(100);
+
+        // LED vert fixe pendant 500ms
+        leds.setPixelColor(0, leds.Color(0, 255, 0));
+        leds.show();
+        delay(500);
+        leds.setPixelColor(0, 0);
+        leds.show();
+
         return true;
       }
     }
@@ -304,6 +348,70 @@ void updateLeds()
 
     leds.show();
   }
+}
+
+// Collect GPS data from modem
+void collectGpsData()
+{
+  float lat, lon;
+  float speed, alt;
+  float accuracy;
+  int vsat, usat, year, month, day, hour, minute, second;
+
+  if (modem.getGPS(&lat, &lon, &speed, &alt, &vsat, &usat, &accuracy, &year, &month, &day, &hour, &minute, &second))
+  {
+    currentGpsData.latitude = lat;
+    currentGpsData.longitude = lon;
+    currentGpsData.altitude = alt;
+    currentGpsData.satellites = vsat;
+    currentGpsData.date = String(year) + "-" + String(month) + "-" + String(day);
+    currentGpsData.time = String(hour) + ":" + String(minute) + ":" + String(second);
+    gpsDataReady = true;
+    SerialMon.println("✓ GPS data collected");
+  }
+  else
+  {
+    gpsDataReady = false;
+    SerialMon.println("✗ GPS data not available");
+  }
+}
+
+// Collect network signal data
+void collectNetworkData()
+{
+  int csq = modem.getSignalQuality();
+  currentGpsData.signalCSQ = csq;
+  currentGpsData.rsrp = "";  // Will be populated if available
+  currentGpsData.rsrq = "";  // Will be populated if available
+  currentGpsData.networkType = "4G";
+  networkDataReady = true;
+  SerialMon.println("✓ Network data collected");
+}
+
+// Collect IMU data
+void collectImuData()
+{
+  if (!imuReady)
+  {
+    currentImuData.available = false;
+    imuDataReady = false;
+    return;
+  }
+
+  if (IMU.accelerationAvailable())
+  {
+    IMU.readAcceleration(currentImuData.accelX, currentImuData.accelY, currentImuData.accelZ);
+  }
+
+  if (IMU.gyroscopeAvailable())
+  {
+    IMU.readGyroscope(currentImuData.gyroX, currentImuData.gyroY, currentImuData.gyroZ);
+  }
+
+  currentImuData.temperature = 0;  // TODO: Add temperature sensor reading if available
+  currentImuData.available = true;
+  imuDataReady = true;
+  SerialMon.println("✓ IMU data collected");
 }
 
 void setup()
@@ -500,12 +608,55 @@ void setup()
 
 void loop()
 {
+  unsigned long now = millis();
+
   // Gestion du bouton
   handleButton();
 
   // Mise à jour des LEDs
   updateLeds();
 
+  // Collect data periodically
+  if (now - lastDataCollection > DATA_COLLECTION_INTERVAL)
+  {
+    SerialMon.println("\n📊 === Collecte des données ===");
+    collectGpsData();
+    collectNetworkData();
+    collectImuData();
+    lastDataCollection = now;
+  }
+
+  // Send data based on mode
+  unsigned long sendInterval = emergencyMode ? SEND_INTERVAL_EMERGENCY : SEND_INTERVAL_NORMAL;
+
+  if (now - lastDataTransmission > sendInterval)
+  {
+    SerialMon.println("\n📤 === Envoi des données ===");
+    String payload = buildJsonPayload(currentGpsData, currentImuData);
+
+    SerialMon.print("Mode: ");
+    SerialMon.println(emergencyMode ? "URGENCE" : "NORMAL");
+    SerialMon.print("Payload: ");
+    SerialMon.println(payload);
+
+    if (sendDataViaHTTP(payload))
+    {
+      lastDataTransmission = now;
+      SerialMon.println("✓ Transmission réussie");
+    }
+    else
+    {
+      SerialMon.println("✗ Transmission échouée - réessai dans " + String(sendInterval / 1000) + "s");
+    }
+  }
+
+  // Petit délai pour ne pas surcharger
+  delay(10);
+}
+
+// Legacy loop data reading (kept for reference, now in collection functions)
+void loop_legacy()
+{
   // Structures pour stocker les données
   GPSData gpsData = {0, 0, 0, 0, "", "", 0, "", "", ""};
   IMUData imuData = {0, 0, 0, 0, 0, 0, 0, false};

@@ -21,6 +21,9 @@ import { braceletService } from "../../services/braceletService";
 import { useSafetyZonesContext } from "../../contexts/SafetyZonesContext";
 import { useBraceletSharing } from "../../hooks/useBraceletSharing";
 import { SettingsZonesTab } from "../../components/SettingsZonesTab";
+import { BraceletNotificationPermissionsModal } from "../../components/BraceletNotificationPermissionsModal";
+import { useBraceletNotificationPermissions } from "../../hooks/useBraceletNotificationPermissions";
+import { NotificationPermissions } from "../../utils/types";
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -248,6 +251,7 @@ export default function SettingsScreen() {
           )}
           {activeTab === "sharing" && (
             <SharingContent
+              braceletId={selectedBraceletId}
               sharedGuardians={sharedGuardians}
               pendingInvitations={pendingInvitations}
               colors={colors}
@@ -276,9 +280,17 @@ function SharingContent({
   onAccept,
   onDecline,
   onRevoke,
+  braceletId,
 }: any) {
   const [email, setEmail] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [selectedGuardian, setSelectedGuardian] = useState<any>(null);
+  const [permissionsModalVisible, setPermissionsModalVisible] = useState(false);
+
+  const { permissions, updatePermissions } = useBraceletNotificationPermissions(
+    braceletId,
+    selectedGuardian?.id
+  );
 
   const handleShare = async () => {
     if (!email.trim()) return;
@@ -291,6 +303,19 @@ function SharingContent({
       Alert.alert("Erreur", "Impossible de partager");
     } finally {
       setSharing(false);
+    }
+  };
+
+  const handleEditPermissions = (guardian: any) => {
+    setSelectedGuardian(guardian);
+    setPermissionsModalVisible(true);
+  };
+
+  const handleSavePermissions = async (newPermissions: NotificationPermissions) => {
+    const success = await updatePermissions(newPermissions);
+    if (success) {
+      setPermissionsModalVisible(false);
+      setSelectedGuardian(null);
     }
   };
 
@@ -477,13 +502,34 @@ function SharingContent({
                       {g.email}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => onRevoke(g.id)}>
-                    <Ionicons
-                      name="remove-circle-outline"
-                      size={24}
-                      color={colors.danger}
-                    />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => handleEditPermissions(g)}
+                      style={[
+                        styles.actionCircle,
+                        { backgroundColor: colors.primary + "15" },
+                      ]}
+                    >
+                      <Ionicons
+                        name="settings-outline"
+                        size={18}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => onRevoke(g.id)}
+                      style={[
+                        styles.actionCircle,
+                        { backgroundColor: colors.danger + "15" },
+                      ]}
+                    >
+                      <Ionicons
+                        name="remove-circle-outline"
+                        size={18}
+                        color={colors.danger}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 {index < sharedGuardians.length - 1 && (
                   <View
@@ -498,6 +544,21 @@ function SharingContent({
           </View>
         )}
       </View>
+
+      {/* Notification Permissions Modal */}
+      {selectedGuardian && permissions && (
+        <BraceletNotificationPermissionsModal
+          visible={permissionsModalVisible}
+          guardianName={selectedGuardian.name}
+          initialPermissions={permissions}
+          colors={colors}
+          onSave={handleSavePermissions}
+          onCancel={() => {
+            setPermissionsModalVisible(false);
+            setSelectedGuardian(null);
+          }}
+        />
+      )}
     </View>
   );
 }

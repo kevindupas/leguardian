@@ -35,3 +35,36 @@ export interface UpdateZoneRequest {
   notify_on_entry?: boolean;
   notify_on_exit?: boolean;
 }
+
+// Notification types for bracelet sharing
+export interface NotificationSchedule {
+  enabled: boolean;
+  start_hour: number; // 0-23
+  end_hour: number; // 0-23
+  allowed_days: number[]; // 0 = lundi, 6 = dimanche
+}
+
+export interface NotificationPermissions {
+  enabled: boolean;
+  types: {
+    zone_entry: boolean;
+    zone_exit: boolean;
+    emergency: boolean;
+    low_battery: boolean;
+  };
+  schedule: NotificationSchedule;
+}
+
+export interface BraceletSharedGuardian {
+  id: number;
+  name: string;
+  email: string;
+  notifications: NotificationPermissions;
+}
+
+export interface BraceletPermissions {
+  can_view_location: boolean;
+  can_view_events: boolean;
+  can_edit_bracelet: boolean;
+  notifications: NotificationPermissions;
+}

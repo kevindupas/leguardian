@@ -1,4 +1,5 @@
 import api from './api';
+import { NotificationPermissions } from '../utils/types';
 
 export interface SharedGuardian {
   id: number;
@@ -91,6 +92,28 @@ export const braceletSharingService = {
   async declineInvitation(braceletId: number): Promise<{ message: string }> {
     const response = await api.post(
       `/mobile/bracelets/${braceletId}/sharing-invitations/decline`
+    );
+    return response.data;
+  },
+
+  async getNotificationPermissions(
+    braceletId: number,
+    guardianId: number
+  ): Promise<NotificationPermissions> {
+    const response = await api.get(
+      `/mobile/bracelets/${braceletId}/shared-guardians/${guardianId}/notifications`
+    );
+    return response.data;
+  },
+
+  async updateNotificationPermissions(
+    braceletId: number,
+    guardianId: number,
+    permissions: NotificationPermissions
+  ): Promise<{ message: string; data: NotificationPermissions }> {
+    const response = await api.put(
+      `/mobile/bracelets/${braceletId}/shared-guardians/${guardianId}/notifications`,
+      permissions
     );
     return response.data;
   },

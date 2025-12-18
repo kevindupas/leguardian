@@ -138,7 +138,7 @@ export const BraceletNotificationPermissionsModal: React.FC<
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.lightBg }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.lightBg }]} edges={["top"]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>

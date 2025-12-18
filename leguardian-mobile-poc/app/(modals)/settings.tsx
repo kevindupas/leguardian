@@ -546,7 +546,7 @@ function SharingContent({
       </View>
 
       {/* Notification Permissions Modal */}
-      {selectedGuardian && permissions && (
+      {selectedGuardian && permissions !== null && (
         <BraceletNotificationPermissionsModal
           visible={permissionsModalVisible}
           guardianName={selectedGuardian.name}

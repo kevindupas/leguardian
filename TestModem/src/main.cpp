@@ -2,8 +2,11 @@
 #include <Wire.h>
 #include <Arduino_LSM6DS3.h>
 #include <Adafruit_NeoPixel.h>
+#include <EEPROM.h>
 
 #define TINY_GSM_RX_BUFFER 1024
+#define EEPROM_SIZE 512
+#define EEPROM_REGISTERED_FLAG 0 // Byte 0: flag indicating if bracelet has been registered
 
 #define SerialMon Serial
 #define SerialAT Serial1
@@ -69,16 +72,16 @@ unsigned long lastGpsToggle = 0;
 // Emergency mode tracking
 bool emergencyMode = false;
 unsigned long buttonPressStartTime = 0;
-#define BUTTON_PRESS_THRESHOLD 3000  // 3 seconds to toggle mode
+#define BUTTON_PRESS_THRESHOLD 3000 // 3 seconds to toggle mode
 
 // Data collection and transmission
 GPSData currentGpsData = {0, 0, 0, 0, "", "", 0, "", "", ""};
 IMUData currentImuData = {0, 0, 0, 0, 0, 0, 0, false};
 unsigned long lastDataCollection = 0;
 unsigned long lastDataTransmission = 0;
-#define DATA_COLLECTION_INTERVAL 5000  // Collect data every 5 seconds
-#define SEND_INTERVAL_NORMAL 180000    // Send every 3 minutes in normal mode
-#define SEND_INTERVAL_EMERGENCY 60000  // Send every 1 minute in emergency mode
+#define DATA_COLLECTION_INTERVAL 5000 // Collect data every 5 seconds
+#define SEND_INTERVAL_NORMAL 180000   // Send every 3 minutes in normal mode
+#define SEND_INTERVAL_EMERGENCY 60000 // Send every 1 minute in emergency mode
 
 // Data ready flags
 bool gpsDataReady = false;
@@ -86,12 +89,15 @@ bool networkDataReady = false;
 bool imuDataReady = false;
 
 // Bracelet identification
-#define BRACELET_UNIQUE_CODE "ESP32_A7670E_001"  // TODO: Use IMEI or generate UUID
+#define BRACELET_UNIQUE_CODE "ESP32_A7670E_001" // TODO: Use IMEI or generate UUID
 
 // Association status
 bool braceletAssociated = false;
 unsigned long lastAssociationCheck = 0;
-#define ASSOCIATION_CHECK_INTERVAL 3600000  // Check every 1 hour
+#define ASSOCIATION_CHECK_INTERVAL 3600000 // Check every 1 hour
+
+// First-boot registration
+bool braceletRegistered = false;
 
 // Bouton
 bool lastButtonState = HIGH;
@@ -106,7 +112,7 @@ enum LEDMode
 LEDMode currentLedMode = LED_OFF;
 
 // HTTP Configuration
-#define SERVER_URL "your-server.com" // À remplacer par votre URL
+#define SERVER_URL "https://api.tracklify.app" // À remplacer par votre URL
 #define SERVER_PORT 80
 unsigned long lastDataSend = 0;
 #define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
@@ -194,10 +200,10 @@ bool sendDataViaHTTP(const String &jsonData)
   client.print(request);
 
   // LED vert clignote pendant l'envoi
-  leds.setPixelColor(0, leds.Color(0, 255, 0));  // Green
+  leds.setPixelColor(0, leds.Color(0, 255, 0)); // Green
   leds.show();
   delay(100);
-  leds.setPixelColor(0, 0);  // Off
+  leds.setPixelColor(0, 0); // Off
   leds.show();
 
   // Attendre la réponse
@@ -386,8 +392,8 @@ void collectNetworkData()
 {
   int csq = modem.getSignalQuality();
   currentGpsData.signalCSQ = csq;
-  currentGpsData.rsrp = "";  // Will be populated if available
-  currentGpsData.rsrq = "";  // Will be populated if available
+  currentGpsData.rsrp = ""; // Will be populated if available
+  currentGpsData.rsrq = ""; // Will be populated if available
   currentGpsData.networkType = "4G";
   networkDataReady = true;
   SerialMon.println("✓ Network data collected");
@@ -413,10 +419,66 @@ void collectImuData()
     IMU.readGyroscope(currentImuData.gyroX, currentImuData.gyroY, currentImuData.gyroZ);
   }
 
-  currentImuData.temperature = 0;  // TODO: Add temperature sensor reading if available
+  currentImuData.temperature = 0; // TODO: Add temperature sensor reading if available
   currentImuData.available = true;
   imuDataReady = true;
   SerialMon.println("✓ IMU data collected");
+}
+
+// Register bracelet on first boot
+bool registerBracelet()
+{
+  SerialMon.println("\n>> Registering bracelet on first boot...");
+
+  if (!client.connect(SERVER_URL, SERVER_PORT))
+  {
+    SerialMon.println("✗ Cannot connect to server for registration");
+    return false;
+  }
+
+  // Build JSON payload
+  String jsonPayload = "{\"unique_code\":\"" + String(BRACELET_UNIQUE_CODE) + "\"}";
+
+  String request = "POST /api/devices/register HTTP/1.1\r\n";
+  request += "Host: " + String(SERVER_URL) + "\r\n";
+  request += "Content-Type: application/json\r\n";
+  request += "Content-Length: " + String(jsonPayload.length()) + "\r\n";
+  request += "Connection: close\r\n";
+  request += "\r\n";
+  request += jsonPayload;
+
+  client.print(request);
+
+  unsigned long timeout = millis() + 5000;
+  while (client.connected() && millis() < timeout)
+  {
+    if (client.available())
+    {
+      String response = client.readString();
+      SerialMon.println("Registration response:");
+      SerialMon.println(response);
+
+      if (response.indexOf("\"id\"") > 0)
+      {
+        SerialMon.println("✓ Bracelet registered successfully");
+
+        // Mark as registered in EEPROM
+        EEPROM.write(EEPROM_REGISTERED_FLAG, 1);
+        EEPROM.commit();
+
+        return true;
+      }
+      else
+      {
+        SerialMon.println("✗ Registration failed");
+        return false;
+      }
+    }
+  }
+
+  client.stop();
+  SerialMon.println("✗ Registration timeout");
+  return false;
 }
 
 // Check if bracelet is associated with a user
@@ -471,6 +533,12 @@ void setup()
   delay(2000);
 
   SerialMon.println("\n=== GPS A7670E ===\n");
+
+  // Initialize EEPROM for first-boot detection
+  EEPROM.begin(EEPROM_SIZE);
+  braceletRegistered = EEPROM.read(EEPROM_REGISTERED_FLAG);
+  SerialMon.print("EEPROM: Bracelet registered = ");
+  SerialMon.println(braceletRegistered);
 
   // Init Vibreur
   pinMode(VIBRER_PIN, OUTPUT);
@@ -656,6 +724,17 @@ void setup()
   modem.sendAT("+CGNSSMODE?");
   modem.waitResponse(2000);
 
+  // Auto-register bracelet on first boot if not already registered
+  if (!braceletRegistered)
+  {
+    SerialMon.println("\n=== First Boot - Auto Registration ===");
+    registerBracelet();
+  }
+  else
+  {
+    SerialMon.println("\n=== Bracelet Already Registered ===");
+  }
+
   // Check if bracelet is associated with a user
   SerialMon.println("\n=== Association Check ===");
   braceletAssociated = checkAssociation();
@@ -724,7 +803,7 @@ void loop()
   else if (!braceletAssociated && (now - lastDataTransmission > sendInterval))
   {
     SerialMon.println("⚠️  Not sending data - bracelet not associated");
-    lastDataTransmission = now;  // Update timer so we don't spam
+    lastDataTransmission = now; // Update timer so we don't spam
   }
 
   // Petit délai pour ne pas surcharger

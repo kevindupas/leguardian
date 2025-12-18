@@ -72,6 +72,54 @@ class DeviceController extends Controller
     }
 
     /**
+     * Auto-register bracelet on first boot
+     * POST /api/devices/register
+     * Called by ESP32 when it first boots up
+     */
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'unique_code' => 'required|string|unique:bracelets,unique_code',
+        ]);
+
+        if ($validator->fails()) {
+            // If unique_code already exists, return the existing bracelet
+            $bracelet = Bracelet::where('unique_code', $request->unique_code)->first();
+            if ($bracelet) {
+                return response()->json([
+                    'id' => $bracelet->id,
+                    'unique_code' => $bracelet->unique_code,
+                    'status' => $bracelet->status,
+                    'already_registered' => true,
+                ], 200);
+            }
+
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Create new bracelet without guardian association
+        $bracelet = Bracelet::create([
+            'unique_code' => $request->unique_code,
+            'name' => 'Bracelet ' . $request->unique_code,
+            'status' => 'active',
+            'battery_level' => 100,
+            // guardian_id is NOT set - bracelet is not associated yet
+        ]);
+
+        Log::info('Bracelet auto-registered on first boot', [
+            'bracelet_id' => $bracelet->id,
+            'unique_code' => $bracelet->unique_code,
+        ]);
+
+        return response()->json([
+            'id' => $bracelet->id,
+            'unique_code' => $bracelet->unique_code,
+            'status' => $bracelet->status,
+            'already_registered' => false,
+        ], 201);
+    }
+
+    /**
      * Check if bracelet is associated with a user
      * GET /api/devices/check-association
      */

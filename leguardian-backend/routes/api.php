@@ -67,6 +67,9 @@ Route::prefix('devices')->group(function () {
     // Create new bracelet (for testing/GUI)
     Route::post('create', [DeviceController::class, 'create']);
 
+    // Auto-register bracelet on first boot
+    Route::post('register', [DeviceController::class, 'register']);
+
     // Authentication
     Route::post('auth', [DeviceController::class, 'authenticate']);
 

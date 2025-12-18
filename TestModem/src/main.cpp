@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Arduino_LSM6DS3.h>
+#include <Adafruit_NeoPixel.h>
 
 #define TINY_GSM_RX_BUFFER 1024
 
@@ -18,10 +19,292 @@
 #define I2C_SDA 21
 #define I2C_SCL 22
 
+// Pins Vibreur
+#define VIBRER_PIN 5
+
+// Pins LEDs NeoPixel
+#define LED_PIN 33
+#define NUM_LEDS 2
+
+// Pins Bouton
+#define BUTTON_PIN 35
+
 #include <TinyGsmClient.h>
 
 TinyGsm modem(SerialAT);
+TinyGsmClient client(modem);
 bool imuReady = false;
+
+// LEDs NeoPixel
+Adafruit_NeoPixel leds(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+bool ledModemState = false;
+bool ledGpsState = false;
+unsigned long lastModemToggle = 0;
+unsigned long lastGpsToggle = 0;
+
+// Emergency mode tracking
+bool emergencyMode = false;
+unsigned long buttonPressStartTime = 0;
+#define BUTTON_PRESS_THRESHOLD 3000  // 3 seconds to toggle mode
+
+// Bouton
+bool lastButtonState = HIGH;
+unsigned long lastButtonPress = 0;
+#define DEBOUNCE_DELAY 50
+enum LEDMode
+{
+  LED_OFF,
+  LED_BLINKING,
+  LED_NORMAL
+};
+LEDMode currentLedMode = LED_OFF;
+
+// HTTP Configuration
+#define SERVER_URL "your-server.com" // À remplacer par votre URL
+#define SERVER_PORT 80
+unsigned long lastDataSend = 0;
+#define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
+
+// Structure pour stocker les données GPS
+struct GPSData
+{
+  float latitude;
+  float longitude;
+  float altitude;
+  int satellites;
+  String date;
+  String time;
+  int signalCSQ;
+  String rsrp;
+  String rsrq;
+  String networkType;
+};
+
+// Structure pour stocker les données IMU
+struct IMUData
+{
+  float accelX, accelY, accelZ;
+  float gyroX, gyroY, gyroZ;
+  float temperature;
+  bool available;
+};
+
+// Fonction vibreur
+void vibrate(int duration)
+{
+  digitalWrite(VIBRER_PIN, HIGH);
+  delay(duration);
+  digitalWrite(VIBRER_PIN, LOW);
+}
+
+// Construire JSON avec les données
+String buildJsonPayload(const GPSData &gps, const IMUData &imu)
+{
+  String json = "{";
+
+  // Données GPS
+  json += "\"gps\":{";
+  json += "\"latitude\":" + String(gps.latitude, 6) + ",";
+  json += "\"longitude\":" + String(gps.longitude, 6) + ",";
+  json += "\"altitude\":" + String(gps.altitude, 2) + ",";
+  json += "\"satellites\":" + String(gps.satellites) + ",";
+  json += "\"date\":\"" + gps.date + "\",";
+  json += "\"time\":\"" + gps.time + "\"";
+  json += "},";
+
+  // Données Réseau 4G
+  json += "\"network\":{";
+  json += "\"signal_csq\":" + String(gps.signalCSQ) + ",";
+  json += "\"rsrp\":\"" + gps.rsrp + "\",";
+  json += "\"rsrq\":\"" + gps.rsrq + "\",";
+  json += "\"type\":\"" + gps.networkType + "\"";
+  json += "},";
+
+  // Données IMU (si disponibles)
+  if (imu.available)
+  {
+    json += "\"imu\":{";
+    json += "\"accel\":{\"x\":" + String(imu.accelX, 4) + ",\"y\":" + String(imu.accelY, 4) + ",\"z\":" + String(imu.accelZ, 4) + "},";
+    json += "\"gyro\":{\"x\":" + String(imu.gyroX, 4) + ",\"y\":" + String(imu.gyroY, 4) + ",\"z\":" + String(imu.gyroZ, 4) + "},";
+    json += "\"temperature\":" + String(imu.temperature, 2);
+    json += "}";
+  }
+
+  json += "}";
+  return json;
+}
+
+// Envoyer les données via HTTP POST
+bool sendDataViaHTTP(const String &jsonData)
+{
+  SerialMon.println("\n>> Envoi des données via HTTP...");
+
+  if (!client.connect(SERVER_URL, SERVER_PORT))
+  {
+    SerialMon.println("✗ Impossible de se connecter au serveur");
+    return false;
+  }
+
+  SerialMon.println("✓ Connecté au serveur");
+
+  // Construire la requête HTTP POST
+  String request = "POST /api/data HTTP/1.1\r\n";
+  request += "Host: " + String(SERVER_URL) + "\r\n";
+  request += "Content-Type: application/json\r\n";
+  request += "Content-Length: " + String(jsonData.length()) + "\r\n";
+  request += "Connection: close\r\n";
+  request += "\r\n";
+  request += jsonData;
+
+  // Envoyer la requête
+  client.print(request);
+
+  // Attendre la réponse
+  unsigned long timeout = millis() + 5000; // Timeout 5 secondes
+  while (client.connected() && millis() < timeout)
+  {
+    if (client.available())
+    {
+      String response = client.readString();
+      SerialMon.println("Réponse serveur:");
+      SerialMon.println(response);
+
+      // Vérifier le code de statut HTTP
+      if (response.indexOf("200") > 0 || response.indexOf("201") > 0)
+      {
+        SerialMon.println("✓ Données envoyées avec succès");
+        vibrate(100);
+        return true;
+      }
+    }
+  }
+
+  client.stop();
+  SerialMon.println("✗ Erreur lors de l'envoi des données");
+  return false;
+}
+
+// Fonction pour initialiser les LEDs
+void initLeds()
+{
+  leds.begin();
+  leds.setBrightness(50);
+  leds.clear();
+  leds.show();
+  SerialMon.println("✓ LEDs initialisées sur GPIO 32");
+}
+
+// Gestion du bouton et changement de mode des LEDs
+void handleButton()
+{
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+  unsigned long now = millis();
+
+  // Button pressed (falling edge)
+  if (currentButtonState == LOW && lastButtonState == HIGH)
+  {
+    buttonPressStartTime = now;
+    SerialMon.println("🔔 BOUTON APPUYÉ - Début du chronométrage...");
+  }
+
+  // Button released (rising edge)
+  if (currentButtonState == HIGH && lastButtonState == LOW && buttonPressStartTime > 0)
+  {
+    unsigned long pressDuration = now - buttonPressStartTime;
+    SerialMon.print("🔔 BOUTON RELÂCHÉ - Durée: ");
+    SerialMon.print(pressDuration);
+    SerialMon.println("ms");
+
+    // Check if press duration >= 3 seconds
+    if (pressDuration >= BUTTON_PRESS_THRESHOLD)
+    {
+      // Toggle emergency mode
+      emergencyMode = !emergencyMode;
+
+      if (emergencyMode)
+      {
+        SerialMon.println("🚨 MODE URGENCE ACTIVÉ!");
+        // 3 short vibrations
+        vibrate(100);
+        delay(50);
+        vibrate(100);
+        delay(50);
+        vibrate(100);
+      }
+      else
+      {
+        SerialMon.println("✓ MODE NORMAL ACTIVÉ");
+        // 1 longer vibration
+        vibrate(300);
+      }
+    }
+    else
+    {
+      SerialMon.println("⏱️ Appui trop court (< 3s) - ignoré");
+    }
+
+    buttonPressStartTime = 0;
+  }
+
+  lastButtonState = currentButtonState;
+}
+
+// Fonction pour mettre à jour l'état des LEDs selon le mode
+void updateLeds()
+{
+  unsigned long now = millis();
+
+  if (currentLedMode == LED_OFF)
+  {
+    // Éteindre les LEDs
+    leds.clear();
+    leds.show();
+  }
+  else if (currentLedMode == LED_BLINKING)
+  {
+    // LED Modem (index 0) - Vert - clignote
+    if (now - lastModemToggle > 500)
+    {
+      ledModemState = !ledModemState;
+      lastModemToggle = now;
+      if (ledModemState)
+      {
+        leds.setPixelColor(0, leds.Color(0, 255, 0)); // Vert
+      }
+      else
+      {
+        leds.setPixelColor(0, 0); // Éteint
+      }
+      leds.show();
+    }
+
+    // LED GPS (index 1) - Bleu - clignote
+    if (now - lastGpsToggle > 500)
+    {
+      ledGpsState = !ledGpsState;
+      lastGpsToggle = now;
+      if (ledGpsState)
+      {
+        leds.setPixelColor(1, leds.Color(0, 0, 255)); // Bleu
+      }
+      else
+      {
+        leds.setPixelColor(1, 0); // Éteint
+      }
+      leds.show();
+    }
+  }
+  else if (currentLedMode == LED_NORMAL)
+  {
+    // LED Modem (index 0) - Vert - allumée
+    leds.setPixelColor(0, leds.Color(0, 255, 0)); // Vert fixe
+
+    // LED GPS (index 1) - Bleu - allumée
+    leds.setPixelColor(1, leds.Color(0, 0, 255)); // Bleu fixe
+
+    leds.show();
+  }
+}
 
 void setup()
 {
@@ -29,6 +312,16 @@ void setup()
   delay(2000);
 
   SerialMon.println("\n=== GPS A7670E ===\n");
+
+  // Init Vibreur
+  pinMode(VIBRER_PIN, OUTPUT);
+  digitalWrite(VIBRER_PIN, LOW);
+
+  // Init Bouton
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  // Init LEDs
+  initLeds();
 
   // Power control
   pinMode(POWER_PIN, OUTPUT);
@@ -42,15 +335,14 @@ void setup()
   SerialMon.println("Reset modem...");
   pinMode(PWR_PIN, OUTPUT);
   digitalWrite(PWR_PIN, LOW);
-  delay(2000);  // Maintien du reset pendant 2s
+  delay(2000);
   digitalWrite(PWR_PIN, HIGH);
 
   SerialMon.println("Attente démarrage modem...");
-  delay(5000);  // Augmenté pour laisser le temps au modem de booter
+  delay(5000);
 
   SerialAT.begin(115200, SERIAL_8N1, PIN_RX, PIN_TX);
 
-  // Attendre que la liaison série soit stable
   SerialMon.println("Attente liaison série...");
   delay(2000);
 
@@ -72,11 +364,11 @@ void setup()
       ;
   }
 
-  // Initialisation I2C pour LSM6DS3 (APRÈS modem)
+  // Initialisation I2C pour LSM6DS3
   SerialMon.println("\nInitialisation I2C et LSM6DS3...");
-  Wire.begin(I2C_SDA, I2C_SCL, 400000); // 400kHz
+  Wire.begin(I2C_SDA, I2C_SCL, 400000);
 
-  // Scanner I2C - cherche les devices sur le bus
+  // Scanner I2C
   SerialMon.println("Scanning I2C bus (pins 21/22)...");
   int deviceCount = 0;
   for (uint8_t addr = 1; addr < 127; addr++)
@@ -87,7 +379,8 @@ void setup()
     {
       deviceCount++;
       SerialMon.print("  Device trouvé à 0x");
-      if (addr < 16) SerialMon.print("0");
+      if (addr < 16)
+        SerialMon.print("0");
       SerialMon.println(addr, HEX);
     }
   }
@@ -122,22 +415,18 @@ void setup()
   // INFOS CARTE SIM
   SerialMon.println("\n--- Infos SIM ---");
 
-  // IMEI (identifiant modem)
   String imei = modem.getIMEI();
   SerialMon.print("IMEI: ");
   SerialMon.println(imei);
 
-  // ICCID (numéro carte SIM)
   String ccid = modem.getSimCCID();
   SerialMon.print("ICCID (N° SIM): ");
   SerialMon.println(ccid);
 
-  // IMSI (identifiant abonné)
   String imsi = modem.getIMSI();
   SerialMon.print("IMSI: ");
   SerialMon.println(imsi);
 
-  // Numéro de téléphone (MSISDN) - parfois vide si non configuré par l'opérateur
   modem.sendAT("+CNUM");
   if (modem.waitResponse(2000, "+CNUM:") == 1)
   {
@@ -156,11 +445,9 @@ void setup()
   // Active le GPS
   SerialMon.println("\nActivation GPS...");
 
-  // Désactive d'abord
   modem.sendAT("+CGNSSPWR=0");
   modem.waitResponse(2000);
 
-  // Active le GPS
   modem.sendAT("+CGNSSPWR=1");
   modem.waitResponse(2000);
 
@@ -171,8 +458,8 @@ void setup()
     SerialMon.print(".");
   }
   SerialMon.println("\n✓ GPS prêt");
+  vibrate(200);
 
-  // Mode GPS only
   modem.sendAT("+CGNSSMODE=1");
   modem.waitResponse(2000);
 
@@ -183,7 +470,6 @@ void setup()
   // Connexion réseau
   SerialMon.println("Connexion au réseau 4G...");
 
-  // Attente réseau
   if (!modem.waitForNetwork(30000L))
   {
     SerialMon.println("✗ Pas de réseau");
@@ -192,10 +478,10 @@ void setup()
   {
     SerialMon.println("✓ Réseau OK");
 
-    // Connexion GPRS
     if (modem.gprsConnect("orange", "", ""))
     {
       SerialMon.println("✓ Connexion 4G OK");
+      vibrate(200);
       IPAddress ip = modem.localIP();
       SerialMon.print("IP: ");
       SerialMon.println(ip);
@@ -204,7 +490,6 @@ void setup()
 
   SerialMon.println();
 
-  // Vérifie l'état du GPS
   SerialMon.println("Vérification état GPS:");
   modem.sendAT("+CGNSSPWR?");
   modem.waitResponse(2000);
@@ -215,16 +500,28 @@ void setup()
 
 void loop()
 {
-  // Lecture données LSM6DS3 (si disponible)
+  // Gestion du bouton
+  handleButton();
+
+  // Mise à jour des LEDs
+  updateLeds();
+
+  // Structures pour stocker les données
+  GPSData gpsData = {0, 0, 0, 0, "", "", 0, "", "", ""};
+  IMUData imuData = {0, 0, 0, 0, 0, 0, 0, false};
+
+  // Lecture données LSM6DS3
   if (imuReady)
   {
     float x, y, z;
     SerialMon.println("\n=== DONNÉES LSM6DS3 ===");
 
-    // Accélération
     if (IMU.accelerationAvailable())
     {
       IMU.readAcceleration(x, y, z);
+      imuData.accelX = x;
+      imuData.accelY = y;
+      imuData.accelZ = z;
       SerialMon.println("--- Accélération (m/s²) ---");
       SerialMon.print("  Accel X: ");
       SerialMon.println(x, 4);
@@ -234,10 +531,12 @@ void loop()
       SerialMon.println(z, 4);
     }
 
-    // Gyroscope
     if (IMU.gyroscopeAvailable())
     {
       IMU.readGyroscope(x, y, z);
+      imuData.gyroX = x;
+      imuData.gyroY = y;
+      imuData.gyroZ = z;
       SerialMon.println("--- Gyroscope (dps) ---");
       SerialMon.print("  Gyro X: ");
       SerialMon.println(x, 4);
@@ -247,16 +546,18 @@ void loop()
       SerialMon.println(z, 4);
     }
 
-    // Température
     if (IMU.temperatureAvailable())
     {
       float temp;
       IMU.readTemperature(temp);
+      imuData.temperature = temp;
       SerialMon.println("--- Température ---");
       SerialMon.print("  Temp: ");
       SerialMon.print(temp, 2);
       SerialMon.println(" °C");
     }
+
+    imuData.available = true;
   }
 
   // Demande info GPS
@@ -267,17 +568,12 @@ void loop()
     String res = modem.stream.readStringUntil('\n');
     res.trim();
 
-    // AFFICHE LA RÉPONSE BRUTE
     SerialMon.print("Réponse brute: [");
     SerialMon.print(res);
     SerialMon.println("]");
 
-    // Format: mode,fix,utc,lat,N/S,lon,E/W,alt,speed,course,pdop,hdop,vdop,satView,satUse,gpsView,glnView,bdView
-    // Exemple: 1,1,20231225120000.000,4851.1234,N,00223.4567,E,123.4,0.0,0.0,1.2,0.8,0.7,12,8,8,0,4
-
     if (res.length() > 10)
     {
-      // Parse les données
       int idx = 0;
       String fields[20];
       int fieldCount = 0;
@@ -296,21 +592,20 @@ void loop()
 
       if (fieldCount >= 12)
       {
-        String mode = fields[0];    // Mode GNSS
-        String satView = fields[1]; // Satellites visibles
-        String lat = fields[5];     // Latitude (déjà en décimal)
-        String ns = fields[6];      // N/S
-        String lon = fields[7];     // Longitude (déjà en décimal)
-        String ew = fields[8];      // E/W
-        String date = fields[9];    // Date DDMMYY
-        String time = fields[10];   // Heure HHMMSS.ss
-        String alt = fields[11];    // Altitude
+        String mode = fields[0];
+        String satView = fields[1];
+        String lat = fields[5];
+        String ns = fields[6];
+        String lon = fields[7];
+        String ew = fields[8];
+        String date = fields[9];
+        String time = fields[10];
+        String alt = fields[11];
 
         if (lat.length() > 0 && lon.length() > 0)
         {
           SerialMon.println("\n=== POSITION GPS ===");
 
-          // Les coordonnées sont DÉJÀ en décimal
           float flat = lat.toFloat();
           if (ns == "S")
             flat = -flat;
@@ -333,10 +628,8 @@ void loop()
           SerialMon.print("Heure: ");
           SerialMon.println(time);
 
-          // INFOS RÉSEAU
           SerialMon.println("\n--- Réseau 4G ---");
 
-          // Signal quality
           int csq = modem.getSignalQuality();
           SerialMon.print("Signal (CSQ): ");
           SerialMon.print(csq);
@@ -344,7 +637,6 @@ void loop()
                                                     : csq > 10   ? " (Moyen)"
                                                                  : " (Faible)");
 
-          // Détails signal 4G via AT+CPSI?
           modem.sendAT("+CPSI?");
           if (modem.waitResponse(2000, "+CPSI:") == 1)
           {
@@ -353,8 +645,6 @@ void loop()
             SerialMon.print("Détails signal: ");
             SerialMon.println(cpsi);
 
-            // Parse RSRP, RSRQ si disponible
-            // Format: +CPSI: LTE,Online,20801-Orange F,0x4F05,466183429,43,EUTRAN-BAND7,3000,5,5,-95,-11,-64,13
             int lastComma = cpsi.lastIndexOf(',');
             if (lastComma > 0)
             {
@@ -373,17 +663,14 @@ void loop()
             }
           }
 
-          // Opérateur
           String op = modem.getOperator();
           SerialMon.print("Opérateur: ");
           SerialMon.println(op);
 
-          // IP locale
           IPAddress ip = modem.localIP();
           SerialMon.print("IP: ");
           SerialMon.println(ip);
 
-          // Type réseau
           modem.sendAT("+COPS?");
           if (modem.waitResponse(2000, "+COPS:") == 1)
           {
@@ -409,5 +696,5 @@ void loop()
   {
     SerialMon.println("Attente signal GPS...");
   }
-  delay(5000); // Lecture toutes les 5 secondes
+  delay(5000);
 }

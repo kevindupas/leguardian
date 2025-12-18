@@ -70,6 +70,9 @@ Route::prefix('devices')->group(function () {
     // Authentication
     Route::post('auth', [DeviceController::class, 'authenticate']);
 
+    // Check if bracelet is associated with a user
+    Route::get('check-association', [DeviceController::class, 'checkAssociation']);
+
     // Button events
     Route::post('button/arrived', [DeviceController::class, 'buttonArrived']);
     Route::post('button/lost', [DeviceController::class, 'buttonLost']);

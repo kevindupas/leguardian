@@ -88,6 +88,11 @@ bool imuDataReady = false;
 // Bracelet identification
 #define BRACELET_UNIQUE_CODE "ESP32_A7670E_001"  // TODO: Use IMEI or generate UUID
 
+// Association status
+bool braceletAssociated = false;
+unsigned long lastAssociationCheck = 0;
+#define ASSOCIATION_CHECK_INTERVAL 3600000  // Check every 1 hour
+
 // Bouton
 bool lastButtonState = HIGH;
 unsigned long lastButtonPress = 0;
@@ -414,6 +419,52 @@ void collectImuData()
   SerialMon.println("✓ IMU data collected");
 }
 
+// Check if bracelet is associated with a user
+bool checkAssociation()
+{
+  SerialMon.println("\n>> Checking association...");
+
+  if (!client.connect(SERVER_URL, SERVER_PORT))
+  {
+    SerialMon.println("✗ Cannot connect to server for association check");
+    return false;
+  }
+
+  String request = "GET /api/devices/check-association HTTP/1.1\r\n";
+  request += "Host: " + String(SERVER_URL) + "\r\n";
+  request += "X-Bracelet-ID: " + String(BRACELET_UNIQUE_CODE) + "\r\n";
+  request += "Connection: close\r\n";
+  request += "\r\n";
+
+  client.print(request);
+
+  unsigned long timeout = millis() + 5000;
+  while (client.connected() && millis() < timeout)
+  {
+    if (client.available())
+    {
+      String response = client.readString();
+      SerialMon.println("Association response:");
+      SerialMon.println(response);
+
+      if (response.indexOf("\"associated\":true") > 0)
+      {
+        SerialMon.println("✓ Bracelet is associated");
+        return true;
+      }
+      else
+      {
+        SerialMon.println("✗ Bracelet is NOT associated");
+        return false;
+      }
+    }
+  }
+
+  client.stop();
+  SerialMon.println("✗ Association check timeout");
+  return false;
+}
+
 void setup()
 {
   SerialMon.begin(115200);
@@ -604,6 +655,20 @@ void setup()
 
   modem.sendAT("+CGNSSMODE?");
   modem.waitResponse(2000);
+
+  // Check if bracelet is associated with a user
+  SerialMon.println("\n=== Association Check ===");
+  braceletAssociated = checkAssociation();
+  lastAssociationCheck = millis();
+
+  if (braceletAssociated)
+  {
+    SerialMon.println("✓ Bracelet will send data");
+  }
+  else
+  {
+    SerialMon.println("⚠️  Bracelet is not associated - data will NOT be sent");
+  }
 }
 
 void loop()
@@ -626,10 +691,17 @@ void loop()
     lastDataCollection = now;
   }
 
-  // Send data based on mode
+  // Check association periodically
+  if (now - lastAssociationCheck > ASSOCIATION_CHECK_INTERVAL)
+  {
+    braceletAssociated = checkAssociation();
+    lastAssociationCheck = now;
+  }
+
+  // Send data based on mode - ONLY IF ASSOCIATED
   unsigned long sendInterval = emergencyMode ? SEND_INTERVAL_EMERGENCY : SEND_INTERVAL_NORMAL;
 
-  if (now - lastDataTransmission > sendInterval)
+  if (braceletAssociated && (now - lastDataTransmission > sendInterval))
   {
     SerialMon.println("\n📤 === Envoi des données ===");
     String payload = buildJsonPayload(currentGpsData, currentImuData);
@@ -648,6 +720,11 @@ void loop()
     {
       SerialMon.println("✗ Transmission échouée - réessai dans " + String(sendInterval / 1000) + "s");
     }
+  }
+  else if (!braceletAssociated && (now - lastDataTransmission > sendInterval))
+  {
+    SerialMon.println("⚠️  Not sending data - bracelet not associated");
+    lastDataTransmission = now;  // Update timer so we don't spam
   }
 
   // Petit délai pour ne pas surcharger

@@ -72,6 +72,28 @@ class DeviceController extends Controller
     }
 
     /**
+     * Check if bracelet is associated with a user
+     * GET /api/devices/check-association
+     */
+    public function checkAssociation(Request $request)
+    {
+        $bracelet = $this->getBraceletFromRequest($request);
+
+        if (!$bracelet) {
+            return response()->json(['associated' => false, 'message' => 'Bracelet not found'], 404);
+        }
+
+        // A bracelet is considered associated if it has a guardian (user)
+        $associated = $bracelet->guardian_id !== null;
+
+        return response()->json([
+            'associated' => $associated,
+            'bracelet_id' => $bracelet->id,
+            'status' => $bracelet->status,
+        ], 200);
+    }
+
+    /**
      * Button pressed - "Je suis bien arrivé" (arrived)
      * POST /api/devices/button/arrived
      */

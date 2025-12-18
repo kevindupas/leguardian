@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   FlatList,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,9 +29,9 @@ export default function SettingsScreen() {
   const [selectedBraceletId, setSelectedBraceletId] = useState<number | null>(null);
   const [bracelets, setBracelets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"zones" | "sharing">("zones");
+  const [activeTab, setActiveTab] = useState<"zones" | "sharing" | "notifications">("zones");
 
-  const { zones, createZone } = useSafetyZones(selectedBraceletId);
+  const { zones } = useSafetyZones(selectedBraceletId);
   const {
     sharedGuardians,
     pendingInvitations,
@@ -81,109 +82,85 @@ export default function SettingsScreen() {
       </View>
 
       {/* Bracelet Selector */}
-      <View style={[styles.braceletSelector, { borderBottomColor: colors.lightBg }]}>
-        <FlatList
-          data={bracelets}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => setSelectedBraceletId(item.id)}
-              style={[
-                styles.braceletTab,
-                {
-                  backgroundColor:
-                    selectedBraceletId === item.id
-                      ? colors.primary
-                      : colors.lightBg,
-                },
-              ]}
-            >
-              <Text
+      {bracelets.length > 1 && (
+        <View style={[styles.braceletSelector, { borderBottomColor: colors.lightBg }]}>
+          <FlatList
+            data={bracelets}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => setSelectedBraceletId(item.id)}
                 style={[
-                  styles.braceletTabText,
+                  styles.braceletTab,
                   {
-                    color:
+                    backgroundColor:
                       selectedBraceletId === item.id
-                        ? "white"
-                        : colors.textPrimary,
+                        ? colors.primary
+                        : colors.lightBg,
                   },
                 ]}
               >
-                {item.alias || item.name}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+                <Text
+                  style={[
+                    styles.braceletTabText,
+                    {
+                      color:
+                        selectedBraceletId === item.id
+                          ? "white"
+                          : colors.textPrimary,
+                    },
+                  ]}
+                >
+                  {item.alias || item.name}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
 
       {/* Tabs */}
-      <View style={[styles.tabsContainer, { borderBottomColor: colors.lightBg }]}>
-        <TouchableOpacity
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.tabsContainer, { borderBottomColor: colors.lightBg }]}
+        contentContainerStyle={{ paddingHorizontal: 16 }}
+      >
+        <TabButton
+          icon="map"
+          label="Zones"
+          active={activeTab === "zones"}
           onPress={() => setActiveTab("zones")}
-          style={[
-            styles.tab,
-            activeTab === "zones" && {
-              borderBottomColor: colors.primary,
-              borderBottomWidth: 2,
-            },
-          ]}
-        >
-          <Ionicons name="map" size={20} color={colors.primary} />
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color:
-                  activeTab === "zones" ? colors.primary : colors.textSecondary,
-              },
-            ]}
-          >
-            Zones
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
+          colors={colors}
+        />
+        <TabButton
+          icon="share-social"
+          label="Partage"
+          active={activeTab === "sharing"}
           onPress={() => setActiveTab("sharing")}
-          style={[
-            styles.tab,
-            activeTab === "sharing" && {
-              borderBottomColor: colors.primary,
-              borderBottomWidth: 2,
-            },
-          ]}
-        >
-          <Ionicons name="share-social" size={20} color={colors.primary} />
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color:
-                  activeTab === "sharing"
-                    ? colors.primary
-                    : colors.textSecondary,
-              },
-            ]}
-          >
-            Partage
-          </Text>
-        </TouchableOpacity>
-      </View>
+          colors={colors}
+        />
+        <TabButton
+          icon="notifications"
+          label="Notifications"
+          active={activeTab === "notifications"}
+          onPress={() => setActiveTab("notifications")}
+          colors={colors}
+        />
+      </ScrollView>
 
       {/* Content */}
       <ScrollView
         style={styles.content}
         contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
       >
-        {activeTab === "zones" ? (
-          <ZonesSection
-            zones={zones}
-            colors={colors}
-            braceletId={selectedBraceletId}
-          />
-        ) : (
+        {activeTab === "zones" && (
+          <ZonesSection zones={zones} colors={colors} braceletId={selectedBraceletId} />
+        )}
+        {activeTab === "sharing" && (
           <SharingSection
             sharedGuardians={sharedGuardians}
             pendingInvitations={pendingInvitations}
@@ -195,14 +172,64 @@ export default function SettingsScreen() {
             braceletId={selectedBraceletId}
           />
         )}
+        {activeTab === "notifications" && (
+          <NotificationsSection colors={colors} />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function TabButton({ icon, label, active, onPress, colors }: any) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.tab,
+        active && {
+          borderBottomColor: colors.primary,
+          borderBottomWidth: 2,
+        },
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={20}
+        color={active ? colors.primary : colors.textSecondary}
+      />
+      <Text
+        style={[
+          styles.tabText,
+          {
+            color: active ? colors.primary : colors.textSecondary,
+          },
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 function ZonesSection({ zones, colors, braceletId }: any) {
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedZone, setSelectedZone] = useState<any>(null);
+  const handleDeleteZone = (zoneId: number, zoneName: string) => {
+    Alert.alert(
+      "Supprimer la zone",
+      `Êtes-vous sûr de vouloir supprimer "${zoneName}" ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          onPress: () => {
+            // TODO: Call delete zone API
+            console.log("Delete zone:", zoneId);
+            Alert.alert("Succès", "Zone supprimée");
+          },
+          style: "destructive",
+        },
+      ]
+    );
+  };
 
   return (
     <View>
@@ -218,7 +245,7 @@ function ZonesSection({ zones, colors, braceletId }: any) {
           <View style={styles.zoneHeader}>
             <View style={styles.zoneInfo}>
               <Ionicons name={zone.icon} size={24} color={colors.primary} />
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.zoneName, { color: colors.textPrimary }]}>
                   {zone.name}
                 </Text>
@@ -235,23 +262,14 @@ function ZonesSection({ zones, colors, braceletId }: any) {
             <View style={styles.zoneActions}>
               <TouchableOpacity
                 onPress={() => {
-                  setSelectedZone(zone);
-                  setShowEditModal(true);
+                  // TODO: Navigate to edit zone
+                  Alert.alert("À venir", "Édition de zone non implémentée");
                 }}
               >
                 <Ionicons name="pencil" size={20} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() =>
-                  Alert.alert("Supprimer", "Êtes-vous sûr ?", [
-                    { text: "Annuler", style: "cancel" },
-                    {
-                      text: "Supprimer",
-                      onPress: () => console.log("Delete zone"),
-                      style: "destructive",
-                    },
-                  ])
-                }
+                onPress={() => handleDeleteZone(zone.id, zone.name)}
               >
                 <Ionicons name="trash" size={20} color={colors.danger} />
               </TouchableOpacity>
@@ -288,7 +306,7 @@ function SharingSection({
     try {
       await onShare(email);
       setEmail("");
-      Alert.alert("Succès", "Invitation envoyée");
+      Alert.alert("Succès", "Invitation envoyée à " + email);
     } catch (error) {
       Alert.alert("Erreur", "Impossible de partager");
     } finally {
@@ -312,13 +330,17 @@ function SharingSection({
           placeholderTextColor={colors.textSecondary}
           value={email}
           onChangeText={setEmail}
+          editable={!sharing}
         />
         <TouchableOpacity
           onPress={handleShare}
-          disabled={sharing}
+          disabled={sharing || !email.trim()}
           style={[
             styles.shareButton,
-            { backgroundColor: colors.primary, opacity: sharing ? 0.5 : 1 },
+            {
+              backgroundColor: colors.primary,
+              opacity: sharing || !email.trim() ? 0.5 : 1,
+            },
           ]}
         >
           {sharing ? (
@@ -344,7 +366,7 @@ function SharingSection({
                 {invitation.bracelet_name}
               </Text>
               <Text style={[styles.invitationFrom, { color: colors.textSecondary }]}>
-                De: {invitation.shared_by}
+                De: {invitation.shared_by || "Utilisateur"}
               </Text>
               <View style={styles.invitationActions}>
                 <TouchableOpacity
@@ -371,7 +393,7 @@ function SharingSection({
       {sharedGuardians.length > 0 && (
         <View style={{ marginTop: 20 }}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Partagé avec
+            Partagé avec ({sharedGuardians.length})
           </Text>
           {sharedGuardians.map((guardian: any) => (
             <View
@@ -379,7 +401,7 @@ function SharingSection({
               style={[styles.card, { backgroundColor: colors.lightBg }]}
             >
               <View style={styles.guardianInfo}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.guardianName, { color: colors.textPrimary }]}
                   >
@@ -427,6 +449,100 @@ function SharingSection({
   );
 }
 
+function NotificationsSection({ colors }: any) {
+  const [notifications, setNotifications] = useState({
+    zoneEntry: true,
+    zoneExit: true,
+    emergencyAlert: true,
+    braceletSharing: true,
+  });
+
+  return (
+    <View>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+        Alertes et notifications
+      </Text>
+
+      <NotificationToggle
+        icon="map"
+        title="Entrée zone"
+        subtitle="Alerte quand le bracelet entre dans une zone"
+        value={notifications.zoneEntry}
+        onToggle={(val) =>
+          setNotifications({ ...notifications, zoneEntry: val })
+        }
+        colors={colors}
+      />
+
+      <NotificationToggle
+        icon="exit"
+        title="Sortie zone"
+        subtitle="Alerte quand le bracelet quitte une zone"
+        value={notifications.zoneExit}
+        onToggle={(val) =>
+          setNotifications({ ...notifications, zoneExit: val })
+        }
+        colors={colors}
+      />
+
+      <NotificationToggle
+        icon="alert-circle"
+        title="Alerte d'urgence"
+        subtitle="Notification en cas d'urgence"
+        value={notifications.emergencyAlert}
+        onToggle={(val) =>
+          setNotifications({ ...notifications, emergencyAlert: val })
+        }
+        colors={colors}
+      />
+
+      <NotificationToggle
+        icon="share-social"
+        title="Partage de bracelet"
+        subtitle="Notification quand quelqu'un partage un bracelet"
+        value={notifications.braceletSharing}
+        onToggle={(val) =>
+          setNotifications({ ...notifications, braceletSharing: val })
+        }
+        colors={colors}
+      />
+    </View>
+  );
+}
+
+function NotificationToggle({ icon, title, subtitle, value, onToggle, colors }: any) {
+  return (
+    <View
+      style={[styles.card, { backgroundColor: colors.lightBg, marginBottom: 12 }]}
+    >
+      <View style={styles.notificationRow}>
+        <View style={styles.notificationInfo}>
+          <View style={styles.notificationIcon}>
+            <Ionicons name={icon} size={24} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.notificationTitle, { color: colors.textPrimary }]}>
+              {title}
+            </Text>
+            <Text style={[styles.notificationSubtitle, { color: colors.textSecondary }]}>
+              {subtitle}
+            </Text>
+          </View>
+        </View>
+        <Switch
+          value={value}
+          onValueChange={onToggle}
+          trackColor={{
+            false: colors.lightBg,
+            true: colors.primary + "40",
+          }}
+          thumbColor={value ? colors.primary : colors.textSecondary}
+        />
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -456,16 +572,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   tabsContainer: {
-    flexDirection: "row",
     borderBottomWidth: 1,
+    paddingTop: 12,
   },
   tab: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     paddingVertical: 12,
+    marginRight: 20,
     gap: 6,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
   tabText: {
     fontSize: 14,
@@ -572,6 +689,32 @@ const styles = StyleSheet.create({
   },
   guardianEmail: {
     fontSize: 13,
+    marginTop: 2,
+  },
+  notificationRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  notificationInfo: {
+    flexDirection: "row",
+    gap: 12,
+    flex: 1,
+    alignItems: "center",
+  },
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  notificationSubtitle: {
+    fontSize: 12,
     marginTop: 2,
   },
   emptyText: {

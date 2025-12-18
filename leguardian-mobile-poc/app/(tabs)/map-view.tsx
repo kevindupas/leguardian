@@ -33,7 +33,7 @@ import { getColors } from "../../constants/Colors";
 import { CustomMapMarker } from "../../components/CustomMapMarker";
 import { MapTypePickerBottomSheet } from "../../components/MapTypePickerBottomSheet";
 import { useZoneDrawing } from "../../hooks/useZoneDrawing";
-import { useSafetyZones } from "../../hooks/useSafetyZones";
+import { useSafetyZonesContext } from "../../contexts/SafetyZonesContext";
 import { BraceletMapCard } from "../../components/BraceletMapCard";
 import { ZonePickerTopSheet } from "@/components/ZonePickerBottomSheet";
 
@@ -90,7 +90,10 @@ export default function MapViewScreen() {
     hasEnoughPoints,
   } = useZoneDrawing();
 
-  const { zones, createZone } = useSafetyZones(selectedBraceletId);
+  const { zones: allZones, loadZones, createZone } = useSafetyZonesContext();
+
+  // Zones pour le bracelet sélectionné
+  const zones = selectedBraceletId ? (allZones[selectedBraceletId] || []) : [];
 
   // Zone Modal
   const [showZoneModal, setShowZoneModal] = useState(false);
@@ -107,6 +110,13 @@ export default function MapViewScreen() {
     const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Charger les zones quand un bracelet est sélectionné
+  useEffect(() => {
+    if (selectedBraceletId) {
+      loadZones(selectedBraceletId);
+    }
+  }, [selectedBraceletId]);
 
   // --- ZOOM INITIAL ---
   useEffect(() => {
@@ -221,7 +231,7 @@ export default function MapViewScreen() {
       return;
     }
     try {
-      const result = await createZone({
+      const result = await createZone(selectedBraceletId, {
         name: newZoneName,
         icon: selectedZoneIcon,
         coordinates: zoneCoordinates.map((c) => ({

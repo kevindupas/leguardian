@@ -361,9 +361,14 @@ class DeviceController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'battery_level' => 'required|integer|min:0|max:100',
+            'battery_level' => 'nullable|integer|min:0|max:100',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
+            'emergency_mode' => 'nullable|boolean',
+            'timestamp' => 'nullable|string',
+            'gps' => 'nullable|array',
+            'network' => 'nullable|array',
+            'imu' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -382,6 +387,20 @@ class DeviceController extends Controller
             $updateData['last_longitude'] = $request->longitude;
             $updateData['last_accuracy'] = $request->accuracy ?? null;
             $updateData['last_location_update'] = now();
+        }
+
+        // Store sensor data if provided
+        if ($request->has('imu') && $request->imu) {
+            $updateData['last_imu_data'] = json_encode($request->imu);
+            $updateData['last_imu_update'] = now();
+        }
+
+        if ($request->has('network') && $request->network) {
+            $updateData['last_network_data'] = json_encode($request->network);
+        }
+
+        if ($request->has('emergency_mode')) {
+            $updateData['emergency_mode'] = $request->boolean('emergency_mode');
         }
 
         $bracelet->update($updateData);

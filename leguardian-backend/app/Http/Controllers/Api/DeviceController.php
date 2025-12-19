@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Bracelet;
 use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
+use App\Models\BraceletTrackingHistory;
 use App\Services\ExpoPushNotificationService;
 use App\Helpers\GeofencingHelper;
 use Illuminate\Http\Request;
@@ -519,6 +520,20 @@ class DeviceController extends Controller
         }
 
         $bracelet->update($updateData);
+
+        // Store tracking history if location is provided
+        if ($request->has('gps') && $request->gps) {
+            $gpsData = $request->gps;
+            BraceletTrackingHistory::create([
+                'bracelet_id' => $bracelet->id,
+                'latitude' => $gpsData['latitude'] ?? null,
+                'longitude' => $gpsData['longitude'] ?? null,
+                'altitude' => $gpsData['altitude'] ?? null,
+                'accuracy' => $gpsData['accuracy'] ?? null,
+                'satellites' => $gpsData['satellites'] ?? null,
+                'device_timestamp' => $request->timestamp ? \Carbon\Carbon::createFromTimestamp($request->timestamp / 1000) : now(),
+            ]);
+        }
 
         // Don't store heartbeat as event - just update location
         // This avoids cluttering the timeline with too many heartbeat points

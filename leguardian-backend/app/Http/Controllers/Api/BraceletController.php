@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Bracelet;
 use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
+use App\Models\BraceletTrackingHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -193,6 +194,44 @@ class BraceletController extends Controller
         $events = $query->paginate(20);
 
         return response()->json($events);
+    }
+
+    /**
+     * Get bracelet tracking history (last 100+ positions)
+     * GET /api/mobile/bracelets/{id}/tracking-history
+     */
+    public function getTrackingHistory(Request $request, Bracelet $bracelet)
+    {
+        // Check authorization using policy
+        $this->authorize('view', $bracelet);
+
+        $validator = Validator::make($request->all(), [
+            'limit' => 'nullable|integer|min:1|max:500',
+            'days' => 'nullable|integer|min:1|max:365',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $limit = $request->input('limit', 100);
+        $days = $request->input('days', 30);
+
+        $history = $bracelet->trackingHistory()
+            ->recent($days)
+            ->withValidLocation()
+            ->orderedByTime()
+            ->limit($limit)
+            ->get()
+            ->toArray();
+
+        return response()->json([
+            'bracelet_id' => $bracelet->id,
+            'tracking_count' => count($history),
+            'limit' => $limit,
+            'days' => $days,
+            'history' => $history,
+        ]);
     }
 
     /**

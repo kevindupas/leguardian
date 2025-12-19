@@ -116,6 +116,11 @@ class Bracelet extends Model
         return $this->hasMany(SafetyZone::class);
     }
 
+    public function trackingHistory()
+    {
+        return $this->hasMany(BraceletTrackingHistory::class);
+    }
+
     // Scopes
     public function scopeActive($query)
     {

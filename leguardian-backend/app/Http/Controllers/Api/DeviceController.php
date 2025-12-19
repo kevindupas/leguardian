@@ -493,9 +493,13 @@ class DeviceController extends Controller
 
         // Update heartbeat data
         $updateData = [
-            'battery_level' => $request->battery_level,
             'last_ping_at' => now(),
         ];
+
+        // Only update battery if provided
+        if ($request->has('battery_level') && $request->battery_level !== null) {
+            $updateData['battery_level'] = $request->battery_level;
+        }
 
         // Store last location if provided
         if ($request->has('latitude') && $request->latitude) {

@@ -136,12 +136,16 @@ String buildJsonPayload(const GPSData &gps, const IMUData &imu)
   // Falls back to GPS time if available, otherwise sends current millis as fallback
   String timestamp = "";
   int year, month, day, hour, minute, second;
+  float milliseconds = 0;
 
   // Try to get time from modem's internal clock (synchronized via 4G)
-  if (modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second)) {
+  if (modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second, &milliseconds)) {
     // Format as ISO 8601: YYYY-MM-DDTHH:MM:SS
-    timestamp = String(year) + "-" + String(month) + "-" + String(day) + "T";
-    timestamp += String(hour) + ":" + String(minute) + ":" + String(second) + "Z";
+    // Pad with zeros for single digits
+    char buf[25];
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+             year, month, day, hour, minute, second);
+    timestamp = String(buf);
   } else if (gps.date != "" && gps.time != "") {
     // Fallback to GPS time if available
     timestamp = gps.date + "T" + gps.time + "Z";

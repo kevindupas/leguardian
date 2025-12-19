@@ -209,7 +209,7 @@ export default function HomeScreen() {
               }
               onPress={() =>
                 router.push({
-                  pathname: "/(tabs)/notifications",
+                  pathname: "/(modals)/settings",
                   params: { braceletId: item.id.toString() },
                 })
               }

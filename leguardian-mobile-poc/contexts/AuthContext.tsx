@@ -35,12 +35,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = await AsyncStorage.getItem('auth_token');
       const userData = await AsyncStorage.getItem('user');
 
+      console.log('[Auth] Token in storage:', !!token);
+      console.log('[Auth] User data in storage:', !!userData);
+
       if (token && userData) {
-        console.log('[Auth] Token found in AsyncStorage');
+        console.log('[Auth] ✓ Token and user found - authenticated');
         setIsAuthenticated(true);
         setUser(JSON.parse(userData));
       } else {
-        console.log('[Auth] No token found in AsyncStorage');
+        console.log('[Auth] ✗ No token or user found - NOT authenticated');
         setIsAuthenticated(false);
         setUser(null);
       }
@@ -49,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       setUser(null);
     } finally {
+      console.log('[Auth] Setting isLoading to false');
       setIsLoading(false);
     }
   };

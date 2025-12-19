@@ -340,8 +340,18 @@ class DeviceController extends Controller
         $longitude = $request->input('gps.longitude') ?? $request->longitude;
         $accuracy = $request->input('gps.accuracy') ?? $request->accuracy;
 
+        // If no GPS data, use last known location
         if (!$latitude || !$longitude) {
-            return response()->json(['errors' => ['location' => ['Location data is required for danger updates']]], 422);
+            $latitude = $bracelet->last_latitude;
+            $longitude = $bracelet->last_longitude;
+            $accuracy = $bracelet->last_accuracy;
+        }
+
+        // If still no location, reject the request
+        if (!$latitude || !$longitude) {
+            return response()->json([
+                'errors' => ['location' => ['Location data required. No GPS fix and no previous location available.']]
+            ], 422);
         }
 
         // Create danger event
@@ -382,14 +392,57 @@ class DeviceController extends Controller
 
         $bracelet->update($updateData);
 
+        // Create tracking history entry for emergency event
+        $deviceTimestamp = null;
+        if ($request->timestamp) {
+            try {
+                // Try ISO 8601 format first (YYYY-MM-DDTHH:MM:SSZ)
+                if (strpos($request->timestamp, 'T') !== false) {
+                    $deviceTimestamp = \Carbon\Carbon::parse($request->timestamp);
+                } else if (is_numeric($request->timestamp)) {
+                    // If it's a number, assume seconds since epoch (Unix timestamp)
+                    $deviceTimestamp = \Carbon\Carbon::createFromTimestamp($request->timestamp);
+                } else {
+                    // Try to parse as-is
+                    $deviceTimestamp = \Carbon\Carbon::parse($request->timestamp);
+                }
+            } catch (\Exception $e) {
+                // If parsing fails, use server time
+                $deviceTimestamp = now();
+            }
+        }
+
+        BraceletTrackingHistory::create([
+            'bracelet_id' => $bracelet->id,
+            // GPS data
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'altitude' => $request->input('gps.altitude') ?? null,
+            'accuracy' => $accuracy,
+            'satellites' => $request->input('gps.satellites') ?? null,
+            // Timestamps
+            'timestamp' => $request->timestamp,
+            'device_timestamp' => $deviceTimestamp ?? now(),
+            // Full sensor data
+            'emergency_mode' => true,
+            'network_data' => $request->has('network') ? $request->network : null,
+            'imu_data' => $request->has('imu') ? $request->imu : null,
+            'battery_level' => $request->battery_level ?? null,
+        ]);
+
         Log::info('Emergency/Danger update received', [
             'bracelet_id' => $bracelet->id,
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'used_last_known_location' => !$request->input('gps.latitude') && !$request->latitude,
         ]);
 
-        // Broadcast update to connected clients
-        BraceletUpdated::dispatch($bracelet, $updateData);
+        // Broadcast update to connected clients (silently catch errors - non-critical)
+        try {
+            BraceletUpdated::dispatch($bracelet, $updateData);
+        } catch (\Exception $e) {
+            Log::warning('Broadcast error (non-critical)', ['error' => $e->getMessage()]);
+        }
 
         return response()->json([
             'success' => true,

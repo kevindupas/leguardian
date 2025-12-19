@@ -8,14 +8,21 @@ export default function Index() {
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/login');
-      }
+    // Wait for auth state to be loaded
+    if (isLoading) {
+      console.log('[Index] Still loading auth state...');
+      return; // Still loading, do nothing
     }
-  }, [isAuthenticated, isLoading]);
+
+    // Navigation after auth state is loaded
+    if (isAuthenticated) {
+      console.log('[Index] User is authenticated, redirecting to home');
+      router.replace('/(tabs)');
+    } else {
+      console.log('[Index] User is NOT authenticated, redirecting to login');
+      router.replace('/login');
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   return (
     <View style={styles.container}>

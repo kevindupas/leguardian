@@ -546,16 +546,28 @@ bool checkAssociation()
     SerialMon.println("Association response:");
     SerialMon.println(response);
 
-    if (response.indexOf("\"associated\":true") > 0)
+    // Look for "associated":true in the response (without escaping the quotes)
+    if (response.indexOf("associated") > 0)
     {
-      SerialMon.println("✓ Bracelet is associated");
-      return true;
+      // Parse the JSON value: look for true or false after "associated"
+      int associatedIdx = response.indexOf("associated");
+      int colonIdx = response.indexOf(":", associatedIdx);
+
+      if (colonIdx > 0)
+      {
+        // Skip whitespace and get the value
+        String valueStr = response.substring(colonIdx + 1);
+
+        if (valueStr.indexOf("true") == 0 || valueStr.indexOf("true") < 10)
+        {
+          SerialMon.println("✓ Bracelet is associated");
+          return true;
+        }
+      }
     }
-    else
-    {
-      SerialMon.println("✗ Bracelet is NOT associated");
-      return false;
-    }
+
+    SerialMon.println("✗ Bracelet is NOT associated");
+    return false;
   }
 
   client.stop();

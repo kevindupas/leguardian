@@ -112,8 +112,8 @@ enum LEDMode
 LEDMode currentLedMode = LED_OFF;
 
 // HTTP Configuration
-#define SERVER_URL "https://api.tracklify.app" // À remplacer par votre URL
-#define SERVER_PORT 80
+#define SERVER_URL "api.tracklify.app" // Production API endpoint
+#define SERVER_PORT 443 // HTTPS port
 unsigned long lastDataSend = 0;
 #define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
 
@@ -537,6 +537,13 @@ void setup()
   // Initialize EEPROM for first-boot detection
   EEPROM.begin(EEPROM_SIZE);
   braceletRegistered = EEPROM.read(EEPROM_REGISTERED_FLAG);
+
+  // DEBUG: Reset EEPROM flag to force re-registration (comment out after testing)
+  EEPROM.write(EEPROM_REGISTERED_FLAG, 0);
+  EEPROM.commit();
+  braceletRegistered = 0;
+  SerialMon.println("DEBUG: EEPROM flag reset - forcing re-registration");
+
   SerialMon.print("EEPROM: Bracelet registered = ");
   SerialMon.println(braceletRegistered);
 

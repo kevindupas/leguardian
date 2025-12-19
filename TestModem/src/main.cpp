@@ -4,6 +4,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
 
+#define TINY_GSM_MODEM_SIM7600
 #define TINY_GSM_RX_BUFFER 1024
 #define EEPROM_SIZE 512
 #define EEPROM_REGISTERED_FLAG 0 // Byte 0: flag indicating if bracelet has been registered
@@ -35,7 +36,7 @@
 #include <TinyGsmClient.h>
 
 TinyGsm modem(SerialAT);
-TinyGsmClient client(modem);
+TinyGsmClient client(modem);  // SIM7600 supports HTTPS natively
 bool imuReady = false;
 
 // Structure pour stocker les données GPS
@@ -112,8 +113,9 @@ enum LEDMode
 LEDMode currentLedMode = LED_OFF;
 
 // HTTP Configuration
-#define SERVER_URL "api.tracklify.app" // Production API endpoint
-#define SERVER_PORT 443 // HTTPS port
+#define SERVER_URL "82.64.114.218" // Production API IP (tracklify.app)
+#define SERVER_PORT 80 // HTTP port (TinyGSM 0.11.7 doesn't support HTTPS, will use HTTP)
+#define SERVER_HOST "api.tracklify.app" // For Host header
 unsigned long lastDataSend = 0;
 #define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
 
@@ -172,23 +174,23 @@ String buildJsonPayload(const GPSData &gps, const IMUData &imu)
   return json;
 }
 
-// Envoyer les données via HTTP POST
+// Envoyer les données via HTTPS POST
 bool sendDataViaHTTP(const String &jsonData)
 {
-  SerialMon.println("\n>> Envoi des données via HTTP...");
+  SerialMon.println("\n>> Envoi des données via HTTPS...");
 
   if (!client.connect(SERVER_URL, SERVER_PORT))
   {
-    SerialMon.println("✗ Impossible de se connecter au serveur");
+    SerialMon.println("✗ Impossible de se connecter au serveur (HTTPS)");
     return false;
   }
 
-  SerialMon.println("✓ Connecté au serveur");
+  SerialMon.println("✓ Connecté au serveur (HTTPS)");
 
   // Construire la requête HTTP POST avec header d'identification
   String endpoint = emergencyMode ? "/api/devices/danger/update" : "/api/devices/heartbeat";
   String request = "POST " + endpoint + " HTTP/1.1\r\n";
-  request += "Host: " + String(SERVER_URL) + "\r\n";
+  request += "Host: " + String(SERVER_HOST) + "\r\n";
   request += "Content-Type: application/json\r\n";
   request += "Content-Length: " + String(jsonData.length()) + "\r\n";
   request += "X-Bracelet-ID: " + String(BRACELET_UNIQUE_CODE) + "\r\n";
@@ -428,7 +430,7 @@ void collectImuData()
 // Register bracelet on first boot
 bool registerBracelet()
 {
-  SerialMon.println("\n>> Registering bracelet on first boot...");
+  SerialMon.println("\n>> Registering bracelet on first boot (HTTPS)...");
 
   if (!client.connect(SERVER_URL, SERVER_PORT))
   {
@@ -440,7 +442,7 @@ bool registerBracelet()
   String jsonPayload = "{\"unique_code\":\"" + String(BRACELET_UNIQUE_CODE) + "\"}";
 
   String request = "POST /api/devices/register HTTP/1.1\r\n";
-  request += "Host: " + String(SERVER_URL) + "\r\n";
+  request += "Host: " + String(SERVER_HOST) + "\r\n";
   request += "Content-Type: application/json\r\n";
   request += "Content-Length: " + String(jsonPayload.length()) + "\r\n";
   request += "Connection: close\r\n";
@@ -449,30 +451,47 @@ bool registerBracelet()
 
   client.print(request);
 
-  unsigned long timeout = millis() + 5000;
-  while (client.connected() && millis() < timeout)
+  delay(500); // Give server time to respond
+
+  unsigned long timeout = millis() + 10000; // Increased to 10 seconds
+  String response = "";
+  bool gotData = false;
+
+  while (millis() < timeout)
   {
     if (client.available())
     {
-      String response = client.readString();
-      SerialMon.println("Registration response:");
-      SerialMon.println(response);
+      char c = client.read();
+      response += c;
+      gotData = true;
+    }
+    else if (gotData && !client.connected())
+    {
+      // We got some data and connection is closed, we're done
+      break;
+    }
+    delay(10); // Small delay to avoid spinning
+  }
 
-      if (response.indexOf("\"id\"") > 0)
-      {
-        SerialMon.println("✓ Bracelet registered successfully");
+  if (response.length() > 0)
+  {
+    SerialMon.println("Registration response:");
+    SerialMon.println(response);
 
-        // Mark as registered in EEPROM
-        EEPROM.write(EEPROM_REGISTERED_FLAG, 1);
-        EEPROM.commit();
+    if (response.indexOf("\"id\"") > 0)
+    {
+      SerialMon.println("✓ Bracelet registered successfully");
 
-        return true;
-      }
-      else
-      {
-        SerialMon.println("✗ Registration failed");
-        return false;
-      }
+      // Mark as registered in EEPROM
+      EEPROM.write(EEPROM_REGISTERED_FLAG, 1);
+      EEPROM.commit();
+
+      return true;
+    }
+    else
+    {
+      SerialMon.println("✗ Registration failed");
+      return false;
     }
   }
 
@@ -484,7 +503,7 @@ bool registerBracelet()
 // Check if bracelet is associated with a user
 bool checkAssociation()
 {
-  SerialMon.println("\n>> Checking association...");
+  SerialMon.println("\n>> Checking association (HTTPS)...");
 
   if (!client.connect(SERVER_URL, SERVER_PORT))
   {
@@ -493,32 +512,49 @@ bool checkAssociation()
   }
 
   String request = "GET /api/devices/check-association HTTP/1.1\r\n";
-  request += "Host: " + String(SERVER_URL) + "\r\n";
+  request += "Host: " + String(SERVER_HOST) + "\r\n";
   request += "X-Bracelet-ID: " + String(BRACELET_UNIQUE_CODE) + "\r\n";
   request += "Connection: close\r\n";
   request += "\r\n";
 
   client.print(request);
 
-  unsigned long timeout = millis() + 5000;
-  while (client.connected() && millis() < timeout)
+  delay(500); // Give server time to respond
+
+  unsigned long timeout = millis() + 10000; // Increased to 10 seconds
+  String response = "";
+  bool gotData = false;
+
+  while (millis() < timeout)
   {
     if (client.available())
     {
-      String response = client.readString();
-      SerialMon.println("Association response:");
-      SerialMon.println(response);
+      char c = client.read();
+      response += c;
+      gotData = true;
+    }
+    else if (gotData && !client.connected())
+    {
+      // We got some data and connection is closed, we're done
+      break;
+    }
+    delay(10); // Small delay to avoid spinning
+  }
 
-      if (response.indexOf("\"associated\":true") > 0)
-      {
-        SerialMon.println("✓ Bracelet is associated");
-        return true;
-      }
-      else
-      {
-        SerialMon.println("✗ Bracelet is NOT associated");
-        return false;
-      }
+  if (response.length() > 0)
+  {
+    SerialMon.println("Association response:");
+    SerialMon.println(response);
+
+    if (response.indexOf("\"associated\":true") > 0)
+    {
+      SerialMon.println("✓ Bracelet is associated");
+      return true;
+    }
+    else
+    {
+      SerialMon.println("✗ Bracelet is NOT associated");
+      return false;
     }
   }
 

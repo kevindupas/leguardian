@@ -20,6 +20,11 @@ class BraceletTrackingHistory extends Model
         'satellites',
         'speed',
         'device_timestamp',
+        'timestamp',
+        'emergency_mode',
+        'network_data',
+        'imu_data',
+        'battery_level',
     ];
 
     protected $casts = [
@@ -30,6 +35,11 @@ class BraceletTrackingHistory extends Model
         'satellites' => 'integer',
         'speed' => 'decimal:2',
         'device_timestamp' => 'datetime',
+        'timestamp' => 'string',
+        'emergency_mode' => 'boolean',
+        'network_data' => 'array',
+        'imu_data' => 'array',
+        'battery_level' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

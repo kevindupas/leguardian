@@ -223,6 +223,27 @@ class BraceletController extends Controller
             ->orderedByTime()
             ->limit($limit)
             ->get()
+            ->map(function ($record) {
+                // Return complete data structure
+                return [
+                    'id' => $record->id,
+                    'timestamp' => $record->timestamp,
+                    'device_timestamp' => $record->device_timestamp,
+                    'emergency_mode' => (bool) $record->emergency_mode,
+                    'gps' => [
+                        'latitude' => (float) $record->latitude,
+                        'longitude' => (float) $record->longitude,
+                        'altitude' => $record->altitude ? (float) $record->altitude : null,
+                        'accuracy' => $record->accuracy,
+                        'satellites' => $record->satellites,
+                    ],
+                    'network' => $record->network_data ?? null,
+                    'imu' => $record->imu_data ?? null,
+                    'battery_level' => $record->battery_level,
+                    'created_at' => $record->created_at,
+                ];
+            })
+            ->values()
             ->toArray();
 
         return response()->json([

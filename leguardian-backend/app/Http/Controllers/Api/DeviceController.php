@@ -525,17 +525,25 @@ class DeviceController extends Controller
 
         $bracelet->update($updateData);
 
-        // Store tracking history if location is provided
+        // Store complete tracking history with all sensor data
         if ($request->has('gps') && $request->gps) {
             $gpsData = $request->gps;
             BraceletTrackingHistory::create([
                 'bracelet_id' => $bracelet->id,
+                // GPS data
                 'latitude' => $gpsData['latitude'] ?? null,
                 'longitude' => $gpsData['longitude'] ?? null,
                 'altitude' => $gpsData['altitude'] ?? null,
                 'accuracy' => $gpsData['accuracy'] ?? null,
                 'satellites' => $gpsData['satellites'] ?? null,
+                // Timestamps
+                'timestamp' => $request->timestamp,
                 'device_timestamp' => $request->timestamp ? \Carbon\Carbon::createFromTimestamp($request->timestamp / 1000) : now(),
+                // Full sensor data
+                'emergency_mode' => $request->boolean('emergency_mode'),
+                'network_data' => $request->has('network') ? $request->network : null,
+                'imu_data' => $request->has('imu') ? $request->imu : null,
+                'battery_level' => $request->battery_level ?? null,
             ]);
         }
 

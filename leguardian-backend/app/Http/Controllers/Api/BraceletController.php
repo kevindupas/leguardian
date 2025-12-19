@@ -45,15 +45,13 @@ class BraceletController extends Controller
      */
     public function show(Request $request, Bracelet $bracelet)
     {
-        // Check if user owns this bracelet
-        if ($bracelet->guardian_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        // Check authorization using policy
+        $this->authorize('view', $bracelet);
 
         // Load relationships
         $bracelet->load('events', 'commands');
 
-        // Create response with last location
+        // Create response with all sensor data
         $response = [
             'bracelet' => $bracelet,
         ];
@@ -67,6 +65,24 @@ class BraceletController extends Controller
                 'updated_at' => $bracelet->last_location_update,
             ];
         }
+
+        // Add sensor data if available
+        if ($bracelet->last_imu_data) {
+            $response['last_imu_data'] = json_decode($bracelet->last_imu_data, true);
+            $response['last_imu_update'] = $bracelet->last_imu_update;
+        }
+
+        if ($bracelet->last_network_data) {
+            $response['last_network_data'] = json_decode($bracelet->last_network_data, true);
+        }
+
+        // Add status info
+        $response['status_info'] = [
+            'status' => $bracelet->status,
+            'emergency_mode' => (bool) $bracelet->emergency_mode,
+            'battery_level' => (int) $bracelet->battery_level,
+            'last_ping_at' => $bracelet->last_ping_at,
+        ];
 
         return response()->json($response);
     }

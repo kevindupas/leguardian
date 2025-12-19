@@ -208,31 +208,49 @@ bool sendDataViaHTTP(const String &jsonData)
   leds.setPixelColor(0, 0); // Off
   leds.show();
 
-  // Attendre la réponse
-  unsigned long timeout = millis() + 5000; // Timeout 5 secondes
-  while (client.connected() && millis() < timeout)
+  // Attendre la réponse HTTP - juste lire le status line
+  delay(500); // Donner du temps au serveur
+  unsigned long timeout = millis() + 5000;
+  String statusLine = "";
+  bool gotStatusLine = false;
+
+  while (millis() < timeout)
   {
     if (client.available())
     {
-      String response = client.readString();
-      SerialMon.println("Réponse serveur:");
-      SerialMon.println(response);
-
-      // Vérifier le code de statut HTTP
-      if (response.indexOf("200") > 0 || response.indexOf("201") > 0)
+      char c = client.read();
+      if (!gotStatusLine)
       {
-        SerialMon.println("✓ Données envoyées avec succès");
-        vibrate(100);
-
-        // LED vert fixe pendant 500ms
-        leds.setPixelColor(0, leds.Color(0, 255, 0));
-        leds.show();
-        delay(500);
-        leds.setPixelColor(0, 0);
-        leds.show();
-
-        return true;
+        statusLine += c;
+        // Status line ends with \r\n
+        if (statusLine.endsWith("\r\n"))
+        {
+          gotStatusLine = true;
+          break;
+        }
       }
+    }
+  }
+
+  if (gotStatusLine)
+  {
+    SerialMon.println("Status: " + statusLine);
+
+    // Vérifier le code de statut HTTP (200 ou 201)
+    if (statusLine.indexOf("200") > 0 || statusLine.indexOf("201") > 0)
+    {
+      SerialMon.println("✓ Données envoyées avec succès");
+      vibrate(100);
+
+      // LED vert fixe pendant 500ms
+      leds.setPixelColor(0, leds.Color(0, 255, 0));
+      leds.show();
+      delay(500);
+      leds.setPixelColor(0, 0);
+      leds.show();
+
+      client.stop();
+      return true;
     }
   }
 

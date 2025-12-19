@@ -561,15 +561,16 @@ class DeviceController extends Controller
 
         Log::info('Heartbeat updated', [
             'bracelet_id' => $bracelet->id,
-            'battery' => $updateData['battery_level'],
+            'battery' => $updateData['battery_level'] ?? $bracelet->battery_level,
             'location_updated' => isset($updateData['last_latitude']),
         ]);
 
-        // Broadcast update to connected clients
-        BraceletUpdated::dispatch($bracelet, $updateData);
-        Log::info('BraceletUpdated::dispatch called from heartbeat', [
-            'bracelet_id' => $bracelet->id,
-        ]);
+        // Broadcast update to connected clients (silently catch errors - non-critical)
+        try {
+            BraceletUpdated::dispatch($bracelet, $updateData);
+        } catch (\Exception $e) {
+            Log::warning('Broadcast error (non-critical)', ['error' => $e->getMessage()]);
+        }
 
         return response()->json([
             'success' => true,

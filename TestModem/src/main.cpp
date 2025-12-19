@@ -132,8 +132,8 @@ String buildJsonPayload(const GPSData &gps, const IMUData &imu)
 {
   String json = "{";
 
-  // Timestamp
-  json += "\"timestamp\":" + String(millis()) + ",";
+  // Timestamp (as string, required by backend validator)
+  json += "\"timestamp\":\"" + String(millis()) + "\",";
 
   // Emergency mode flag
   json += "\"emergency_mode\":" + String(emergencyMode ? "true" : "false") + ",";

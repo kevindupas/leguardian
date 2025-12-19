@@ -314,8 +314,19 @@ class DeviceController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'latitude' => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
+            'timestamp' => 'nullable|string',
+            'emergency_mode' => 'nullable|boolean',
+            'battery_level' => 'nullable|integer|min:0|max:100',
+            'gps' => 'nullable|array',
+            'gps.latitude' => 'nullable|numeric|between:-90,90',
+            'gps.longitude' => 'nullable|numeric|between:-180,180',
+            'gps.altitude' => 'nullable|numeric',
+            'gps.satellites' => 'nullable|integer',
+            'network' => 'nullable|array',
+            'imu' => 'nullable|array',
+            // Legacy fields for backward compatibility
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'accuracy' => 'nullable|integer',
         ]);
 
@@ -323,31 +334,65 @@ class DeviceController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Create update event
+        // Extract latitude/longitude from gps object or direct fields
+        $latitude = $request->input('gps.latitude') ?? $request->latitude;
+        $longitude = $request->input('gps.longitude') ?? $request->longitude;
+        $accuracy = $request->input('gps.accuracy') ?? $request->accuracy;
+
+        if (!$latitude || !$longitude) {
+            return response()->json(['errors' => ['location' => ['Location data is required for danger updates']]], 422);
+        }
+
+        // Create danger event
         BraceletEvent::create([
             'bracelet_id' => $bracelet->id,
             'event_type' => 'danger',
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
-            'accuracy' => $request->accuracy,
-            'battery_level' => $bracelet->battery_level,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'accuracy' => $accuracy,
+            'battery_level' => $request->battery_level ?? $bracelet->battery_level,
         ]);
 
-        // Update last location and ping
+        // Update bracelet status and location
         $updateData = [
+            'status' => 'emergency',
+            'emergency_mode' => true,
             'last_ping_at' => now(),
-            'last_latitude' => $request->latitude,
-            'last_longitude' => $request->longitude,
-            'last_accuracy' => $request->accuracy ?? null,
+            'last_latitude' => $latitude,
+            'last_longitude' => $longitude,
+            'last_accuracy' => $accuracy ?? null,
             'last_location_update' => now(),
         ];
+
+        // Store battery if provided
+        if ($request->has('battery_level') && $request->battery_level !== null) {
+            $updateData['battery_level'] = $request->battery_level;
+        }
+
+        // Store sensor data if provided
+        if ($request->has('imu') && $request->imu) {
+            $updateData['last_imu_data'] = json_encode($request->imu);
+            $updateData['last_imu_update'] = now();
+        }
+
+        if ($request->has('network') && $request->network) {
+            $updateData['last_network_data'] = json_encode($request->network);
+        }
+
         $bracelet->update($updateData);
+
+        Log::info('Emergency/Danger update received', [
+            'bracelet_id' => $bracelet->id,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ]);
 
         // Broadcast update to connected clients
         BraceletUpdated::dispatch($bracelet, $updateData);
 
         return response()->json([
             'success' => true,
+            'status' => 'emergency',
             'continue_tracking' => true,
         ]);
     }

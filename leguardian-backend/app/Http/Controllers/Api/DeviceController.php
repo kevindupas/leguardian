@@ -528,6 +528,27 @@ class DeviceController extends Controller
         // Store complete tracking history with all sensor data
         if ($request->has('gps') && $request->gps) {
             $gpsData = $request->gps;
+
+            // Parse device_timestamp from various formats
+            $deviceTimestamp = null;
+            if ($request->timestamp) {
+                try {
+                    // Try ISO 8601 format first (YYYY-MM-DDTHH:MM:SSZ)
+                    if (strpos($request->timestamp, 'T') !== false) {
+                        $deviceTimestamp = \Carbon\Carbon::parse($request->timestamp);
+                    } else if (is_numeric($request->timestamp)) {
+                        // If it's a number, assume seconds since epoch (Unix timestamp)
+                        $deviceTimestamp = \Carbon\Carbon::createFromTimestamp($request->timestamp);
+                    } else {
+                        // Try to parse as-is
+                        $deviceTimestamp = \Carbon\Carbon::parse($request->timestamp);
+                    }
+                } catch (\Exception $e) {
+                    // If parsing fails, use server time
+                    $deviceTimestamp = now();
+                }
+            }
+
             BraceletTrackingHistory::create([
                 'bracelet_id' => $bracelet->id,
                 // GPS data
@@ -538,7 +559,7 @@ class DeviceController extends Controller
                 'satellites' => $gpsData['satellites'] ?? null,
                 // Timestamps
                 'timestamp' => $request->timestamp,
-                'device_timestamp' => $request->timestamp ? \Carbon\Carbon::createFromTimestamp($request->timestamp / 1000) : now(),
+                'device_timestamp' => $deviceTimestamp ?? now(),
                 // Full sensor data
                 'emergency_mode' => $request->boolean('emergency_mode'),
                 'network_data' => $request->has('network') ? $request->network : null,

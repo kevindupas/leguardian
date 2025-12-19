@@ -132,8 +132,25 @@ String buildJsonPayload(const GPSData &gps, const IMUData &imu)
 {
   String json = "{";
 
-  // Timestamp (as string, required by backend validator)
-  json += "\"timestamp\":\"" + String(millis()) + "\",";
+  // Timestamp - get current time from modem's RTC (synchronized via 4G network)
+  // Falls back to GPS time if available, otherwise sends current millis as fallback
+  String timestamp = "";
+  int year, month, day, hour, minute, second;
+
+  // Try to get time from modem's internal clock (synchronized via 4G)
+  if (modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second)) {
+    // Format as ISO 8601: YYYY-MM-DDTHH:MM:SS
+    timestamp = String(year) + "-" + String(month) + "-" + String(day) + "T";
+    timestamp += String(hour) + ":" + String(minute) + ":" + String(second) + "Z";
+  } else if (gps.date != "" && gps.time != "") {
+    // Fallback to GPS time if available
+    timestamp = gps.date + "T" + gps.time + "Z";
+  } else {
+    // Last resort: use current millis (will be converted on backend)
+    timestamp = String(millis() / 1000); // Convert ms to seconds for better accuracy
+  }
+
+  json += "\"timestamp\":\"" + timestamp + "\",";
 
   // Emergency mode flag
   json += "\"emergency_mode\":" + String(emergencyMode ? "true" : "false") + ",";

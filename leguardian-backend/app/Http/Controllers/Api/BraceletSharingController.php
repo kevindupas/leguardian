@@ -257,7 +257,16 @@ class BraceletSharingController extends Controller
             'pivot_class' => get_class($relation->pivot),
         ]);
 
-        $preferences = $relation->pivot->notification_preferences ?? [
+        // Get notification preferences and parse JSON if it's a string
+        $rawPreferences = $relation->pivot->notification_preferences;
+        if (is_string($rawPreferences)) {
+            $preferences = json_decode($rawPreferences, true);
+        } else {
+            $preferences = $rawPreferences;
+        }
+
+        // Use default if preferences is null
+        $preferences = $preferences ?? [
             'enabled' => true,
             'types' => [
                 'zone_entry' => true,
@@ -374,10 +383,8 @@ class BraceletSharingController extends Controller
             return response()->json(['error' => 'Guardian not found for this bracelet'], 404);
         }
 
-        // Ensure daily_config is stored as an object, not array
-        if (isset($validated['schedule']['daily_config'])) {
-            $validated['schedule']['daily_config'] = (object)$validated['schedule']['daily_config'];
-        }
+        // Note: Keep daily_config as associative array - Laravel will encode it to JSON object automatically
+        // Converting to (object) causes issues with JSON serialization
 
         // Update notification preferences
         $updated = $bracelet->guardians()->updateExistingPivot($targetGuardian->id, [

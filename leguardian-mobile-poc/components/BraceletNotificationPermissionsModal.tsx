@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,156 +9,206 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NotificationPermissions, NotificationSchedule } from '../utils/types';
+  Platform,
+  LayoutAnimation,
+  UIManager,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { NotificationPermissions } from "../utils/types";
+import { DEFAULT_PERMISSIONS } from "../hooks/useBraceletNotificationPermissions";
 
-const DAYS = [
-  { label: 'Lun', value: 0 },
-  { label: 'Mar', value: 1 },
-  { label: 'Mer', value: 2 },
-  { label: 'Jeu', value: 3 },
-  { label: 'Ven', value: 4 },
-  { label: 'Sam', value: 5 },
-  { label: 'Dim', value: 6 },
-];
-
-interface BraceletNotificationPermissionsModalProps {
-  visible: boolean;
-  guardianName: string;
-  initialPermissions: NotificationPermissions;
-  colors: any;
-  onSave: (permissions: NotificationPermissions) => Promise<void>;
-  onCancel: () => void;
+// Activation des animations sur Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export const BraceletNotificationPermissionsModal: React.FC<
-  BraceletNotificationPermissionsModalProps
-> = ({ visible, guardianName, initialPermissions, colors, onSave, onCancel }) => {
-  const [permissions, setPermissions] = useState<NotificationPermissions>(
-    initialPermissions
-  );
+const DAYS = [
+  { label: "Lundi", short: "Lun", value: 0 },
+  { label: "Mardi", short: "Mar", value: 1 },
+  { label: "Mercredi", short: "Mer", value: 2 },
+  { label: "Jeudi", short: "Jeu", value: 3 },
+  { label: "Vendredi", short: "Ven", value: 4 },
+  { label: "Samedi", short: "Sam", value: 5 },
+  { label: "Dimanche", short: "Dim", value: 6 },
+];
+
+export const BraceletNotificationPermissionsModal: React.FC<any> = ({
+  visible,
+  guardianName,
+  initialPermissions,
+  colors,
+  onSave,
+  onCancel,
+}) => {
+  const [permissions, setPermissions] =
+    useState<NotificationPermissions>(initialPermissions || DEFAULT_PERMISSIONS);
   const [saving, setSaving] = useState(false);
+  const [activeDay, setActiveDay] = useState(0); // Lundi par défaut
 
   useEffect(() => {
-    setPermissions(initialPermissions);
+    if (visible && initialPermissions) {
+      const prep = { ...initialPermissions };
+      // Ensure schedule object exists
+      if (!prep.schedule) {
+        prep.schedule = {
+          enabled: false,
+          allowed_days: [0, 1, 2, 3, 4, 5, 6],
+          daily_config: {},
+        };
+      }
+      // Initialisation de la structure quotidienne si elle n'existe pas
+      if (!prep.schedule.daily_config) {
+        prep.schedule.daily_config = {};
+        DAYS.forEach((d) => {
+          prep.schedule.daily_config![d.value] =
+            prep.schedule.allowed_days.includes(d.value)
+              ? [
+                  ...(prep.schedule.time_blocks || [
+                    { start_hour: 8, end_hour: 18 },
+                  ]),
+                ]
+              : [];
+        });
+      }
+      setPermissions(prep);
+    }
   }, [visible, initialPermissions]);
 
-  const toggleNotifications = (value: boolean) => {
-    setPermissions((prev) => ({
-      ...prev,
-      enabled: value,
-    }));
-  };
+  const animate = () =>
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
-  const toggleNotificationType = (
-    type: 'zone_entry' | 'zone_exit' | 'emergency' | 'low_battery',
-    value: boolean
-  ) => {
+  // --- ACTIONS ---
+  const addBlock = (day: number) => {
+    animate();
     setPermissions((prev) => ({
       ...prev,
-      types: {
-        ...prev.types,
-        [type]: value,
+      schedule: {
+        ...prev.schedule,
+        daily_config: {
+          ...prev.schedule.daily_config,
+          [day]: [
+            ...(prev.schedule.daily_config?.[day] || []),
+            { start_hour: 9, end_hour: 17 },
+          ],
+        },
       },
     }));
   };
 
-  const toggleDay = (day: number) => {
+  const updateBlock = (
+    day: number,
+    idx: number,
+    key: "start_hour" | "end_hour",
+    val: number
+  ) => {
     setPermissions((prev) => {
-      const allowed_days = prev.schedule.allowed_days.includes(day)
-        ? prev.schedule.allowed_days.filter((d) => d !== day)
-        : [...prev.schedule.allowed_days, day].sort();
-
+      const newBlocks = [...prev.schedule.daily_config![day]];
+      newBlocks[idx] = { ...newBlocks[idx], [key]: val };
       return {
         ...prev,
         schedule: {
           ...prev.schedule,
-          allowed_days,
+          daily_config: { ...prev.schedule.daily_config, [day]: newBlocks },
         },
       };
     });
   };
 
-  const setStartHour = (hour: number) => {
+  const removeBlock = (day: number, idx: number) => {
+    animate();
     setPermissions((prev) => ({
       ...prev,
       schedule: {
         ...prev.schedule,
-        start_hour: hour,
+        daily_config: {
+          ...prev.schedule.daily_config,
+          [day]: prev.schedule.daily_config![day].filter((_, i) => i !== idx),
+        },
       },
     }));
   };
 
-  const setEndHour = (hour: number) => {
-    setPermissions((prev) => ({
-      ...prev,
-      schedule: {
-        ...prev.schedule,
-        end_hour: hour,
-      },
-    }));
-  };
-
-  const toggleSchedule = (value: boolean) => {
-    setPermissions((prev) => ({
-      ...prev,
-      schedule: {
-        ...prev.schedule,
-        enabled: value,
-      },
-    }));
+  const copyToAll = () => {
+    Alert.alert(
+      "Copier le planning",
+      `Appliquer les horaires de ${DAYS[activeDay].label} à tous les autres jours ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Copier",
+          onPress: () => {
+            animate();
+            const source = permissions.schedule.daily_config![activeDay];
+            setPermissions((prev) => {
+              const newConf = { ...prev.schedule.daily_config };
+              DAYS.forEach((d) => {
+                newConf[d.value] = [...source];
+              });
+              return {
+                ...prev,
+                schedule: { ...prev.schedule, daily_config: newConf },
+              };
+            });
+          },
+        },
+      ]
+    );
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      console.log(
+        "[BraceletNotificationPermissionsModal] Saving permissions:",
+        JSON.stringify(permissions, null, 2)
+      );
       await onSave(permissions);
-      Alert.alert('Succès', 'Permissions mises à jour');
+      console.log("[BraceletNotificationPermissionsModal] Save successful");
       onCancel();
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible de mettre à jour les permissions');
+    } catch (err) {
+      console.error("[BraceletNotificationPermissionsModal] Save failed:", err);
+      Alert.alert("Erreur", "Impossible de sauvegarder");
     } finally {
       setSaving(false);
     }
   };
 
-  const getScheduleText = (): string => {
-    if (!permissions.schedule.enabled) {
-      return 'Pas de restriction horaire';
-    }
-
-    const days = permissions.schedule.allowed_days.length;
-    const daysPerWeek = days === 7 ? 'Tous les jours' : `${days} jours/semaine`;
-    const hours = `${permissions.schedule.start_hour}h - ${permissions.schedule.end_hour}h`;
-
-    return `${daysPerWeek}, ${hours}`;
-  };
+  const currentDayBlocks = permissions.schedule.daily_config?.[activeDay] || [];
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.lightBg }]} edges={["top"]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
-            <Ionicons name="close" size={28} color={colors.textPrimary} />
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onCancel}
+    >
+      <View style={[styles.container, { backgroundColor: colors.lightBg }]}>
+        {/* HEADER */}
+        <View style={[styles.header, { borderBottomColor: colors.mediumBg }]}>
+          <TouchableOpacity onPress={onCancel}>
+            <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
+              Annuler
+            </Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Notifications pour {guardianName}
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+            Planning des alertes
           </Text>
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={saving}
-            style={[
-              styles.saveBtn,
-              { backgroundColor: saving ? colors.mediumBg : colors.primary },
-            ]}
-          >
+          <TouchableOpacity onPress={handleSave} disabled={saving}>
             {saving ? (
-              <ActivityIndicator size="small" color="white" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Ionicons name="checkmark" size={20} color="white" />
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontSize: 16,
+                  fontWeight: "700",
+                }}
+              >
+                Enregistrer
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -167,457 +217,444 @@ export const BraceletNotificationPermissionsModal: React.FC<
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
         >
-          {/* Main Toggle */}
-          <View style={[styles.card, { backgroundColor: colors.white }]}>
-            <View style={styles.row}>
-              <View>
-                <Text style={[styles.label, { color: colors.textPrimary }]}>
-                  Activer les notifications
-                </Text>
-                <Text style={[styles.description, { color: colors.textSecondary }]}>
-                  Si désactivé, aucune notification ne sera reçue
-                </Text>
+          {/* SECTION 1: ACTIVATION GÉNÉRALE */}
+          <View style={styles.section}>
+            <View style={[styles.card, { backgroundColor: colors.white }]}>
+              <View style={styles.row}>
+                <View style={styles.labelGroup}>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.textPrimary }]}
+                  >
+                    Notifications actives
+                  </Text>
+                  <Text
+                    style={[styles.cardSub, { color: colors.textSecondary }]}
+                  >
+                    Recevoir des alertes sur ce téléphone
+                  </Text>
+                </View>
+                <Switch
+                  value={permissions.enabled}
+                  onValueChange={(v) =>
+                    setPermissions((p) => ({ ...p, enabled: v }))
+                  }
+                  trackColor={{ false: colors.mediumBg, true: colors.primary }}
+                />
               </View>
-              <Switch
-                value={permissions.enabled}
-                onValueChange={toggleNotifications}
-                trackColor={{ false: colors.lightBg, true: colors.primary }}
-                thumbColor="white"
-              />
+              {permissions.enabled && (
+                <>
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: colors.lightBg },
+                    ]}
+                  />
+                  <View style={styles.row}>
+                    <Text
+                      style={[styles.cardTitle, { color: colors.textPrimary }]}
+                    >
+                      Utiliser un planning
+                    </Text>
+                    <Switch
+                      value={permissions.schedule.enabled}
+                      onValueChange={(v) => {
+                        animate();
+                        setPermissions((p) => ({
+                          ...p,
+                          schedule: { ...p.schedule, enabled: v },
+                        }));
+                      }}
+                      trackColor={{
+                        false: colors.mediumBg,
+                        true: colors.primary,
+                      }}
+                    />
+                  </View>
+                </>
+              )}
             </View>
           </View>
 
-          {permissions.enabled && (
-            <>
-              {/* Notification Types */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  TYPES DE NOTIFICATIONS
+          {permissions.enabled && permissions.schedule.enabled && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textSecondary }]}
+                >
+                  PLANNING HEBDOMADAIRE
                 </Text>
-                <View style={[styles.card, { backgroundColor: colors.white }]}>
-                  <NotificationTypeRow
-                    icon="enter-outline"
-                    color="#4CAF50"
-                    title="Entrée de zone"
-                    description="Alerté quand elle entre dans une zone"
-                    value={permissions.types.zone_entry}
-                    onToggle={() =>
-                      toggleNotificationType('zone_entry', !permissions.types.zone_entry)
-                    }
-                    colors={colors}
+                <TouchableOpacity onPress={copyToAll} style={styles.copyBtn}>
+                  <Ionicons
+                    name="copy-outline"
+                    size={14}
+                    color={colors.primary}
                   />
-                  <Divider colors={colors} />
-
-                  <NotificationTypeRow
-                    icon="exit-outline"
-                    color="#FF9800"
-                    title="Sortie de zone"
-                    description="Alerté quand elle sort d'une zone"
-                    value={permissions.types.zone_exit}
-                    onToggle={() =>
-                      toggleNotificationType('zone_exit', !permissions.types.zone_exit)
-                    }
-                    colors={colors}
-                  />
-                  <Divider colors={colors} />
-
-                  <NotificationTypeRow
-                    icon="alert-circle"
-                    color="#F44336"
-                    title="SOS / Urgence"
-                    description="Alerté en cas d'urgence"
-                    value={permissions.types.emergency}
-                    onToggle={() =>
-                      toggleNotificationType('emergency', !permissions.types.emergency)
-                    }
-                    colors={colors}
-                  />
-                  <Divider colors={colors} />
-
-                  <NotificationTypeRow
-                    icon="battery-dead"
-                    color={colors.textSecondary}
-                    title="Batterie faible"
-                    description="Alerté quand la batterie est faible"
-                    value={permissions.types.low_battery}
-                    onToggle={() =>
-                      toggleNotificationType('low_battery', !permissions.types.low_battery)
-                    }
-                    colors={colors}
-                    isLast
-                  />
-                </View>
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 12,
+                      fontWeight: "700",
+                    }}
+                  >
+                    Copier partout
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Schedule Section */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  HORAIRES
+              {/* SÉLECTEUR DE JOURS */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.dayPicker}
+              >
+                {DAYS.map((d) => {
+                  const isActive = activeDay === d.value;
+                  const hasData =
+                    (permissions.schedule.daily_config?.[d.value] || [])
+                      .length > 0;
+                  return (
+                    <TouchableOpacity
+                      key={d.value}
+                      onPress={() => {
+                        animate();
+                        setActiveDay(d.value);
+                      }}
+                      style={[
+                        styles.dayPill,
+                        {
+                          backgroundColor: isActive
+                            ? colors.primary
+                            : colors.white,
+                        },
+                        !isActive &&
+                          hasData && {
+                            borderColor: colors.primary + "40",
+                            borderWidth: 1,
+                          },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.dayPillText,
+                          { color: isActive ? "white" : colors.textPrimary },
+                        ]}
+                      >
+                        {d.short}
+                      </Text>
+                      {hasData && (
+                        <View
+                          style={[
+                            styles.dot,
+                            {
+                              backgroundColor: isActive
+                                ? "white"
+                                : colors.primary,
+                            },
+                          ]}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* CRÉNEAUX DU JOUR */}
+              <View style={[styles.card, { backgroundColor: colors.white }]}>
+                <Text
+                  style={[styles.dayIndicator, { color: colors.textPrimary }]}
+                >
+                  Programmation du {DAYS[activeDay].label}
                 </Text>
 
-                <View style={[styles.card, { backgroundColor: colors.white }]}>
-                  <View style={styles.row}>
-                    <View>
-                      <Text style={[styles.label, { color: colors.textPrimary }]}>
-                        Limiter par horaire
-                      </Text>
-                      <Text style={[styles.description, { color: colors.textSecondary }]}>
-                        {getScheduleText()}
-                      </Text>
+                {currentDayBlocks.length > 0 ? (
+                  currentDayBlocks.map((block: any, idx: number) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.timeCard,
+                        { backgroundColor: colors.lightBg },
+                      ]}
+                    >
+                      <View style={styles.timeInputs}>
+                        <TimeStep
+                          title="DE"
+                          value={block.start_hour}
+                          onChange={(v: number) =>
+                            updateBlock(activeDay, idx, "start_hour", v)
+                          }
+                          colors={colors}
+                        />
+                        <View style={styles.timeArrow}>
+                          <Ionicons
+                            name="arrow-forward"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                        </View>
+                        <TimeStep
+                          title="À"
+                          value={block.end_hour}
+                          onChange={(v: number) =>
+                            updateBlock(activeDay, idx, "end_hour", v)
+                          }
+                          colors={colors}
+                        />
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => removeBlock(activeDay, idx)}
+                        style={styles.removeIcon}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={24}
+                          color="#FF3B30"
+                        />
+                      </TouchableOpacity>
                     </View>
-                    <Switch
-                      value={permissions.schedule.enabled}
-                      onValueChange={toggleSchedule}
-                      trackColor={{ false: colors.lightBg, true: colors.primary }}
-                      thumbColor="white"
-                    />
+                  ))
+                ) : (
+                  <View style={styles.emptyDay}>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Aucune alerte ce jour-là
+                    </Text>
                   </View>
-                </View>
-
-                {permissions.schedule.enabled && (
-                  <>
-                    {/* Time Selectors */}
-                    <View style={[styles.card, { backgroundColor: colors.white }]}>
-                      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                        Heures
-                      </Text>
-
-                      <View style={styles.timeRow}>
-                        <View style={styles.timeSection}>
-                          <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>
-                            De
-                          </Text>
-                          <HourSelector
-                            value={permissions.schedule.start_hour}
-                            onChange={setStartHour}
-                            colors={colors}
-                          />
-                        </View>
-
-                        <Text style={[styles.timeSeparator, { color: colors.textSecondary }]}>
-                          à
-                        </Text>
-
-                        <View style={styles.timeSection}>
-                          <Text style={[styles.timeLabel, { color: colors.textSecondary }]}>
-                            À
-                          </Text>
-                          <HourSelector
-                            value={permissions.schedule.end_hour}
-                            onChange={setEndHour}
-                            colors={colors}
-                          />
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Days Selector */}
-                    <View style={[styles.card, { backgroundColor: colors.white }]}>
-                      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                        Jours de la semaine
-                      </Text>
-
-                      <View style={styles.daysGrid}>
-                        {DAYS.map((day) => (
-                          <TouchableOpacity
-                            key={day.value}
-                            onPress={() => toggleDay(day.value)}
-                            style={[
-                              styles.dayButton,
-                              {
-                                backgroundColor: permissions.schedule.allowed_days.includes(
-                                  day.value
-                                )
-                                  ? colors.primary
-                                  : colors.lightBg,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.dayLabel,
-                                {
-                                  color: permissions.schedule.allowed_days.includes(day.value)
-                                    ? 'white'
-                                    : colors.textSecondary,
-                                },
-                              ]}
-                            >
-                              {day.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  </>
                 )}
-              </View>
 
-              {/* Summary */}
+                <TouchableOpacity
+                  style={[styles.addBtn, { borderColor: colors.primary }]}
+                  onPress={() => addBlock(activeDay)}
+                >
+                  <Ionicons
+                    name="add-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                    Ajouter un créneau
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* SECTION TYPES D'ALERTES */}
+          <View style={styles.section}>
+            <Text
+              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+            >
+              TYPES D'ALERTES
+            </Text>
+            <View style={[styles.card, { backgroundColor: colors.white }]}>
+              <NotifToggle
+                icon="enter-outline"
+                label="Entrée de zone"
+                value={permissions.types.zone_entry}
+                onToggle={(v: any) =>
+                  setPermissions((p) => ({
+                    ...p,
+                    types: { ...p.types, zone_entry: v },
+                  }))
+                }
+                color="#4CAF50"
+                colors={colors}
+              />
               <View
                 style={[
-                  styles.card,
-                  styles.summaryCard,
-                  { backgroundColor: colors.primary + '10' },
+                  styles.divider,
+                  { backgroundColor: colors.lightBg, marginLeft: 44 },
                 ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                  <Ionicons
-                    name="information-circle"
-                    size={24}
-                    color={colors.primary}
-                    style={{ marginTop: 2 }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>
-                      Récapitulatif
-                    </Text>
-                    <Text style={[styles.summaryText, { color: colors.textSecondary }]}>
-                      {permissions.enabled
-                        ? `Notifications ${permissions.schedule.enabled ? `limitées à ${getScheduleText().toLowerCase()}` : 'sans restriction'}`
-                        : 'Notifications désactivées'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </>
-          )}
+              />
+              <NotifToggle
+                icon="exit-outline"
+                label="Sortie de zone"
+                value={permissions.types.zone_exit}
+                onToggle={(v: any) =>
+                  setPermissions((p) => ({
+                    ...p,
+                    types: { ...p.types, zone_exit: v },
+                  }))
+                }
+                color="#FF9800"
+                colors={colors}
+              />
+              <View
+                style={[
+                  styles.divider,
+                  { backgroundColor: colors.lightBg, marginLeft: 44 },
+                ]}
+              />
+              <NotifToggle
+                icon="alert-circle-outline"
+                label="SOS / Urgence"
+                value={permissions.types.emergency}
+                onToggle={(v: any) =>
+                  setPermissions((p) => ({
+                    ...p,
+                    types: { ...p.types, emergency: v },
+                  }))
+                }
+                color="#F44336"
+                colors={colors}
+              />
+            </View>
+          </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
 
-// Sub-components
+// --- MINI COMPOSANTS ---
 
-const NotificationTypeRow = ({
-  icon,
-  color,
-  title,
-  description,
-  value,
-  onToggle,
-  colors,
-  isLast = false,
-}: any) => (
-  <>
-    <View style={styles.notifRow}>
-      <View style={[styles.notifIcon, { backgroundColor: color }]}>
-        <Ionicons name={icon} size={18} color="white" />
-      </View>
-      <View style={styles.notifInfo}>
-        <Text style={[styles.notifTitle, { color: colors.textPrimary }]}>{title}</Text>
-        <Text style={[styles.notifDescription, { color: colors.textSecondary }]}>
-          {description}
-        </Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onToggle}
-        trackColor={{ false: colors.lightBg, true: color }}
-        thumbColor="white"
-      />
-    </View>
-    {!isLast && <Divider colors={colors} />}
-  </>
-);
-
-const HourSelector = ({ value, onChange, colors }: any) => {
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-
-  return (
-    <View style={styles.hourSelector}>
+const TimeStep = ({ title, value, onChange, colors }: any) => (
+  <View style={styles.timeStepContainer}>
+    <Text style={styles.timeStepTitle}>{title}</Text>
+    <View style={[styles.timePicker, { backgroundColor: colors.white }]}>
       <TouchableOpacity
         onPress={() => onChange(Math.max(0, value - 1))}
-        style={[styles.hourArrow, { backgroundColor: colors.lightBg }]}
+        style={styles.timeBtn}
       >
-        <Ionicons name="chevron-up" size={18} color={colors.textSecondary} />
+        <Ionicons name="remove" size={14} color={colors.textPrimary} />
       </TouchableOpacity>
-
-      <Text style={[styles.hourValue, { color: colors.textPrimary }]}>
-        {String(value).padStart(2, '0')}:00
+      <Text style={[styles.timeVal, { color: colors.textPrimary }]}>
+        {value}h
       </Text>
-
       <TouchableOpacity
         onPress={() => onChange(Math.min(23, value + 1))}
-        style={[styles.hourArrow, { backgroundColor: colors.lightBg }]}
+        style={styles.timeBtn}
       >
-        <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+        <Ionicons name="add" size={14} color={colors.textPrimary} />
       </TouchableOpacity>
     </View>
-  );
-};
+  </View>
+);
 
-const Divider = ({ colors }: any) => (
-  <View style={[styles.divider, { backgroundColor: colors.lightBg }]} />
+const NotifToggle = ({ icon, label, value, onToggle, color, colors }: any) => (
+  <View style={styles.row}>
+    <View style={styles.iconLabel}>
+      <View style={[styles.iconContainer, { backgroundColor: color + "15" }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+        {label}
+      </Text>
+    </View>
+    <Switch
+      value={value}
+      onValueChange={onToggle}
+      trackColor={{ false: colors.mediumBg, true: colors.primary }}
+    />
+  </View>
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 18,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
   },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerTitle: { fontSize: 17, fontWeight: "800" },
+  section: { marginTop: 24, paddingHorizontal: 16 },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    paddingHorizontal: 8,
   },
-  title: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  saveBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  section: {
-    paddingHorizontal: 16,
-    marginTop: 24,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginLeft: 12,
-  },
+  sectionTitle: { fontSize: 13, fontWeight: "700", letterSpacing: 0.5 },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
-    marginBottom: 12,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
+  labelGroup: { flex: 1, marginRight: 10 },
+  cardTitle: { fontSize: 16, fontWeight: "600" },
+  cardSub: { fontSize: 12, marginTop: 2 },
+  divider: { height: 1 },
+  dayPicker: { flexDirection: "row", marginBottom: 15 },
+  dayPill: {
+    width: 52,
+    height: 65,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    backgroundColor: "white",
   },
-  description: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-
-  // Notification Types
-  notifRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-  },
-  notifIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notifInfo: {
-    flex: 1,
-  },
-  notifTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  notifDescription: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-  },
-
-  // Time Selectors
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  timeSection: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  timeLabel: {
-    fontSize: 12,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  hourSelector: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  hourArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hourValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    minWidth: 70,
-    textAlign: 'center',
-  },
-  timeSeparator: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 20,
-  },
-
-  // Days
-  daysGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
-  },
-  dayButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  // Summary
-  summaryCard: {
-    marginHorizontal: 16,
-    marginTop: 24,
-  },
-  summaryTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+  dayPillText: { fontSize: 14, fontWeight: "800" },
+  dot: { width: 5, height: 5, borderRadius: 3, marginTop: 6 },
+  dayIndicator: { fontSize: 15, fontWeight: "700", marginBottom: 5 },
+  timeCard: {
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
-  summaryText: {
-    fontSize: 13,
-    lineHeight: 18,
+  timeInputs: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  timeStepContainer: { alignItems: "center", gap: 6 },
+  timeStepTitle: { fontSize: 10, fontWeight: "bold", color: "#999" },
+  timePicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    padding: 4,
+  },
+  timeBtn: { padding: 6 },
+  timeVal: { fontSize: 16, fontWeight: "800", width: 40, textAlign: "center" },
+  timeArrow: { marginTop: 16 },
+  removeIcon: { marginLeft: 10 },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 14,
+    borderRadius: 16,
+    borderStyle: "dashed",
+    borderWidth: 1.5,
+    marginTop: 8,
+    gap: 8,
+  },
+  emptyDay: { padding: 20, alignItems: "center" },
+  iconLabel: { flexDirection: "row", alignItems: "center", gap: 12 },
+  iconContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "white",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 });

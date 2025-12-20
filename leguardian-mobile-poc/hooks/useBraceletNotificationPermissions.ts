@@ -9,7 +9,7 @@ interface UseBraceletNotificationPermissionsState {
 }
 
 // Default permissions for new guardians
-const DEFAULT_PERMISSIONS: NotificationPermissions = {
+export const DEFAULT_PERMISSIONS: NotificationPermissions = {
   enabled: true,
   types: {
     zone_entry: true,
@@ -19,8 +19,15 @@ const DEFAULT_PERMISSIONS: NotificationPermissions = {
   },
   schedule: {
     enabled: false,
-    start_hour: 8,
-    end_hour: 20,
+    daily_config: {
+      0: [{ start_hour: 8, end_hour: 18 }], // Monday
+      1: [{ start_hour: 8, end_hour: 18 }], // Tuesday
+      2: [{ start_hour: 8, end_hour: 18 }], // Wednesday
+      3: [{ start_hour: 8, end_hour: 18 }], // Thursday
+      4: [{ start_hour: 8, end_hour: 18 }], // Friday
+      5: [{ start_hour: 8, end_hour: 18 }], // Saturday
+      6: [{ start_hour: 8, end_hour: 18 }], // Sunday
+    },
     allowed_days: [0, 1, 2, 3, 4, 5, 6], // All days
   },
 };
@@ -65,13 +72,17 @@ export const useBraceletNotificationPermissions = (
     if (braceletId && guardianId) {
       fetchPermissions();
     }
-  }, [braceletId, guardianId]);
+  }, [braceletId, guardianId, fetchPermissions]);
 
   // Update notification permissions
   const updatePermissions = useCallback(
     async (permissions: NotificationPermissions): Promise<boolean> => {
-      if (!braceletId || !guardianId) return false;
+      if (!braceletId || !guardianId) {
+        console.error('[useBraceletNotificationPermissions] Missing braceletId or guardianId', { braceletId, guardianId });
+        return false;
+      }
 
+      console.log('[useBraceletNotificationPermissions] Updating permissions for bracelet', braceletId, 'guardian', guardianId);
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
         const result = await braceletSharingService.updateNotificationPermissions(
@@ -79,10 +90,15 @@ export const useBraceletNotificationPermissions = (
           guardianId,
           permissions
         );
+        console.log('[useBraceletNotificationPermissions] Update successful:', result);
         setState({ permissions: result.data, loading: false, error: null });
+        // Reload permissions from backend to ensure data is fresh
+        console.log('[useBraceletNotificationPermissions] Reloading permissions from backend...');
+        await fetchPermissions();
         return true;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Failed to update permissions';
+      } catch (error: any) {
+        const errorMsg = error?.response?.data?.message || (error instanceof Error ? error.message : 'Failed to update permissions');
+        console.error('[useBraceletNotificationPermissions] Update failed:', errorMsg, error);
         setState((prev) => ({
           ...prev,
           loading: false,
@@ -91,7 +107,7 @@ export const useBraceletNotificationPermissions = (
         return false;
       }
     },
-    [braceletId, guardianId]
+    [braceletId, guardianId, fetchPermissions]
   );
 
   return {

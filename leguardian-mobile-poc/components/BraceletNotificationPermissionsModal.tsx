@@ -44,13 +44,39 @@ export const BraceletNotificationPermissionsModal: React.FC<any> = ({
   onCancel,
 }) => {
   const [permissions, setPermissions] =
-    useState<NotificationPermissions>(initialPermissions || DEFAULT_PERMISSIONS);
+    useState<NotificationPermissions>(() => {
+      // Merge initialPermissions with DEFAULT_PERMISSIONS to ensure all fields exist
+      if (!initialPermissions) return DEFAULT_PERMISSIONS;
+      return {
+        enabled: initialPermissions.enabled ?? true,
+        types: {
+          zone_entry: initialPermissions.types?.zone_entry ?? true,
+          zone_exit: initialPermissions.types?.zone_exit ?? true,
+          emergency: initialPermissions.types?.emergency ?? true,
+          low_battery: initialPermissions.types?.low_battery ?? false,
+        },
+        schedule: {
+          enabled: initialPermissions.schedule?.enabled ?? false,
+          daily_config: initialPermissions.schedule?.daily_config ?? {},
+          allowed_days: initialPermissions.schedule?.allowed_days ?? [0, 1, 2, 3, 4, 5, 6],
+        },
+      };
+    });
   const [saving, setSaving] = useState(false);
   const [activeDay, setActiveDay] = useState(0); // Lundi par défaut
 
   useEffect(() => {
     if (visible && initialPermissions) {
       const prep = { ...initialPermissions };
+      // Ensure types object exists
+      if (!prep.types) {
+        prep.types = {
+          zone_entry: true,
+          zone_exit: true,
+          emergency: true,
+          low_battery: false,
+        };
+      }
       // Ensure schedule object exists
       if (!prep.schedule) {
         prep.schedule = {

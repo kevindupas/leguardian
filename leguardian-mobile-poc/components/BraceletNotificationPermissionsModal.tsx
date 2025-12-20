@@ -43,8 +43,8 @@ export const BraceletNotificationPermissionsModal: React.FC<any> = ({
   onSave,
   onCancel,
 }) => {
-  const [permissions, setPermissions] =
-    useState<NotificationPermissions>(() => {
+  const [permissions, setPermissions] = useState<NotificationPermissions>(
+    () => {
       // Merge initialPermissions with DEFAULT_PERMISSIONS to ensure all fields exist
       if (!initialPermissions) return DEFAULT_PERMISSIONS;
       return {
@@ -58,10 +58,13 @@ export const BraceletNotificationPermissionsModal: React.FC<any> = ({
         schedule: {
           enabled: initialPermissions.schedule?.enabled ?? false,
           daily_config: initialPermissions.schedule?.daily_config ?? {},
-          allowed_days: initialPermissions.schedule?.allowed_days ?? [0, 1, 2, 3, 4, 5, 6],
+          allowed_days: initialPermissions.schedule?.allowed_days ?? [
+            0, 1, 2, 3, 4, 5, 6,
+          ],
         },
       };
-    });
+    }
+  );
   const [saving, setSaving] = useState(false);
   const [activeDay, setActiveDay] = useState(0); // Lundi par défaut
 
@@ -471,7 +474,10 @@ export const BraceletNotificationPermissionsModal: React.FC<any> = ({
           {/* SECTION TYPES D'ALERTES */}
           <View style={styles.section}>
             <Text
-              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+              style={[
+                styles.sectionTitle,
+                { color: colors.textSecondary, marginBottom: 12 },
+              ]}
             >
               TYPES D'ALERTES
             </Text>
@@ -602,6 +608,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     gap: 12,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOpacity: 0.03,
     shadowRadius: 10,

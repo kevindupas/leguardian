@@ -228,4 +228,172 @@ class BraceletSharingController extends Controller
 
         return response()->json(['message' => 'Invitation declined']);
     }
+
+    /**
+     * Get notification preferences for a shared guardian
+     */
+    public function getNotificationPermissions(Bracelet $bracelet, Guardian $targetGuardian): JsonResponse
+    {
+        $guardian = auth()->guard('sanctum')->user();
+
+        // Only the owner or the target guardian can view notification preferences
+        if ($guardian->id !== $bracelet->guardian_id && $guardian->id !== $targetGuardian->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Get the relationship
+        $relation = $bracelet->guardians()
+            ->where('guardians.id', $targetGuardian->id)
+            ->first();
+
+        if (!$relation) {
+            return response()->json(['error' => 'Guardian not found for this bracelet'], 404);
+        }
+
+        // Get notification preferences or return default
+        \Log::info('getNotificationPermissions - Raw pivot data', [
+            'notification_preferences' => $relation->pivot->notification_preferences,
+            'pivot_attributes' => $relation->pivot->getAttributes(),
+            'pivot_class' => get_class($relation->pivot),
+        ]);
+
+        $preferences = $relation->pivot->notification_preferences ?? [
+            'enabled' => true,
+            'types' => [
+                'zone_entry' => true,
+                'zone_exit' => true,
+                'emergency' => true,
+                'low_battery' => false,
+            ],
+            'schedule' => [
+                'enabled' => false,
+                'daily_config' => [
+                    0 => [['start_hour' => 8, 'end_hour' => 18]],
+                    1 => [['start_hour' => 8, 'end_hour' => 18]],
+                    2 => [['start_hour' => 8, 'end_hour' => 18]],
+                    3 => [['start_hour' => 8, 'end_hour' => 18]],
+                    4 => [['start_hour' => 8, 'end_hour' => 18]],
+                    5 => [['start_hour' => 8, 'end_hour' => 18]],
+                    6 => [['start_hour' => 8, 'end_hour' => 18]],
+                ],
+                'allowed_days' => [0, 1, 2, 3, 4, 5, 6],
+            ],
+        ];
+
+        // If preferences exist but use legacy format, convert to daily_config
+        if (is_array($preferences) && isset($preferences['schedule'])) {
+            $schedule = $preferences['schedule'];
+
+            // Convert from legacy (start_hour/end_hour) or time_blocks to daily_config
+            if (!isset($schedule['daily_config'])) {
+                $timeBlocks = $schedule['time_blocks'] ?? [];
+                if (empty($timeBlocks) && isset($schedule['start_hour'], $schedule['end_hour'])) {
+                    $timeBlocks = [['start_hour' => $schedule['start_hour'], 'end_hour' => $schedule['end_hour']]];
+                }
+
+                // Create daily_config from time blocks
+                $dailyConfig = [];
+                for ($i = 0; $i < 7; $i++) {
+                    if (in_array($i, $schedule['allowed_days'] ?? [])) {
+                        $dailyConfig[$i] = $timeBlocks ?: [];
+                    } else {
+                        $dailyConfig[$i] = [];
+                    }
+                }
+                $preferences['schedule']['daily_config'] = $dailyConfig;
+            }
+        }
+
+        \Log::info('getNotificationPermissions - Final response', [
+            'preferences' => $preferences,
+        ]);
+
+        return response()->json($preferences);
+    }
+
+    /**
+     * Update notification preferences for a shared guardian
+     */
+    public function updateNotificationPermissions(Request $request, Bracelet $bracelet, Guardian $targetGuardian): JsonResponse
+    {
+        $guardian = auth()->guard('sanctum')->user();
+
+        \Log::info('updateNotificationPermissions called', [
+            'bracelet_id' => $bracelet->id,
+            'target_guardian_id' => $targetGuardian->id,
+            'current_user_id' => $guardian->id,
+            'bracelet_guardian_id' => $bracelet->guardian_id,
+        ]);
+
+        // Only the owner can update notification preferences for others
+        if ($guardian->id !== $bracelet->guardian_id && $guardian->id !== $targetGuardian->id) {
+            \Log::warning('Unauthorized update attempt', [
+                'bracelet_id' => $bracelet->id,
+                'target_guardian_id' => $targetGuardian->id,
+                'current_user_id' => $guardian->id,
+            ]);
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Validate the notification preferences
+        // Support legacy (start_hour/end_hour), time_blocks, and new daily_config format
+        $validated = $request->validate([
+            'enabled' => 'boolean|required',
+            'types' => 'array|required',
+            'types.zone_entry' => 'boolean|required',
+            'types.zone_exit' => 'boolean|required',
+            'types.emergency' => 'boolean|required',
+            'types.low_battery' => 'boolean|required',
+            'schedule' => 'array|required',
+            'schedule.enabled' => 'boolean|required',
+            // Legacy format
+            'schedule.start_hour' => 'integer|min:0|max:23|nullable',
+            'schedule.end_hour' => 'integer|min:0|max:23|nullable',
+            // Global time blocks
+            'schedule.time_blocks' => 'array|nullable',
+            'schedule.time_blocks.*.start_hour' => 'integer|min:0|max:23|required',
+            'schedule.time_blocks.*.end_hour' => 'integer|min:0|max:23|required',
+            // New per-day config format
+            'schedule.daily_config' => 'array|nullable',
+            'schedule.daily_config.*' => 'array',
+            'schedule.daily_config.*.*.start_hour' => 'integer|min:0|max:23|required',
+            'schedule.daily_config.*.*.end_hour' => 'integer|min:0|max:23|required',
+            'schedule.allowed_days' => 'array|required',
+        ]);
+
+        // Get the relationship
+        $relation = $bracelet->guardians()
+            ->where('guardians.id', $targetGuardian->id)
+            ->first();
+
+        if (!$relation) {
+            \Log::error('Guardian not found in bracelet_guardian', [
+                'bracelet_id' => $bracelet->id,
+                'guardian_id' => $targetGuardian->id,
+            ]);
+            return response()->json(['error' => 'Guardian not found for this bracelet'], 404);
+        }
+
+        // Ensure daily_config is stored as an object, not array
+        if (isset($validated['schedule']['daily_config'])) {
+            $validated['schedule']['daily_config'] = (object)$validated['schedule']['daily_config'];
+        }
+
+        // Update notification preferences
+        $updated = $bracelet->guardians()->updateExistingPivot($targetGuardian->id, [
+            'notification_preferences' => $validated,
+        ]);
+
+        \Log::info('Updated notification preferences', [
+            'bracelet_id' => $bracelet->id,
+            'guardian_id' => $targetGuardian->id,
+            'updated_rows' => $updated,
+            'preferences' => $validated,
+        ]);
+
+        return response()->json([
+            'message' => 'Notification preferences updated successfully',
+            'data' => $validated,
+        ]);
+    }
 }

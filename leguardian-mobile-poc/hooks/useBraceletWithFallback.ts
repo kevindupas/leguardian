@@ -64,71 +64,20 @@ export const useBraceletWithFallback = ({
     fetchInitial();
   }, [braceletId, onUpdate]);
 
-  // Set up polling as fallback + periodic refresh
+  // Clean up - we no longer use polling since WebSocket is now fully functional
   useEffect(() => {
-    if (!enableWebSocket) {
-      // Polling only mode
-      const fetchBracelet = async () => {
-        try {
-          const data = await braceletService.getBracelets();
-          const found = data.find((b) => b.id === braceletId);
-          if (found) {
-            setBracelet(found);
-            onUpdate?.(found);
-          }
-        } catch (error) {
-          console.log('[useBraceletWithFallback] Polling error:', error);
-        }
-      };
-
-      const interval = setInterval(() => {
-        fetchBracelet();
-      }, 5000); // Poll every 5 seconds
-
-      return () => clearInterval(interval);
-    }
-
-    // WebSocket + fallback polling mode
-    const fetchBracelet = async () => {
-      try {
-        const data = await braceletService.getBracelets();
-        const found = data.find((b) => b.id === braceletId);
-        if (found) {
-          setBracelet(found);
-          onUpdate?.(found);
-        }
-      } catch (error) {
-        console.log('[useBraceletWithFallback] Fallback polling error:', error);
-      }
-    };
-
-    // Start fallback polling after 3 seconds if WS hasn't connected
-    const timeout = setTimeout(() => {
-      if (!wsConnectStatus) {
-        console.log(
-          '[useBraceletWithFallback] WS not connected, starting fallback polling'
-        );
-        fetchBracelet();
-
-        // Poll every 5 seconds as fallback
-        const interval = setInterval(() => {
-          fetchBracelet();
-        }, 5000);
-
-        pollIntervalRef.current = interval;
-      }
-    }, 3000);
-
-    fallbackTimeoutRef.current = timeout;
-
+    // Cleanup any polling intervals if they exist
     return () => {
-      clearTimeout(timeout);
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
     };
-  }, [braceletId, enableWebSocket, wsConnectStatus, onUpdate]);
+  }, []);
 
   return {
     bracelet,

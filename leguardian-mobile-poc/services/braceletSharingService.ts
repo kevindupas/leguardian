@@ -46,11 +46,18 @@ export const braceletSharingService = {
       can_send_commands?: boolean;
     }
   ): Promise<{ message: string; shared_with: string }> {
-    const response = await api.post(`/mobile/bracelets/${braceletId}/share`, {
-      email,
-      ...permissions,
-    });
-    return response.data;
+    try {
+      console.log('[BraceletSharingService] Sharing bracelet', braceletId, 'with email:', email);
+      const response = await api.post(`/mobile/bracelets/${braceletId}/share`, {
+        email,
+        ...permissions,
+      });
+      console.log('[BraceletSharingService] Share successful:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[BraceletSharingService] Share failed:', error.response?.data || error.message);
+      throw error;
+    }
   },
 
   async updatePermissions(

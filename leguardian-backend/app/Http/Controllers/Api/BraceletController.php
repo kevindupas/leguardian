@@ -141,6 +141,25 @@ class BraceletController extends Controller
         $bracelet->update($updateData);
         $bracelet->refresh();
 
+        // Add user to bracelet_guardian pivot table as owner if not already there
+        $userId = $request->user()->id;
+        $existing = $bracelet->guardians()->where('guardians.id', $userId)->exists();
+        if (!$existing) {
+            $bracelet->guardians()->attach($userId, [
+                'role' => 'owner',
+                'can_edit' => true,
+                'can_view_location' => true,
+                'can_view_events' => true,
+                'can_send_commands' => true,
+                'shared_at' => now(),
+                'accepted_at' => now(),
+            ]);
+            \Log::info('Added user to bracelet_guardian pivot table', [
+                'bracelet_id' => $bracelet->id,
+                'user_id' => $userId,
+            ]);
+        }
+
         return response()->json([
             'bracelet' => $bracelet,
             'message' => 'Bracelet enregistré avec succès',

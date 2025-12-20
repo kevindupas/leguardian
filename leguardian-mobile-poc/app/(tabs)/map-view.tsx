@@ -13,13 +13,14 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Alert,
+  Keyboard,
 } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import MapView, {
   Marker,
   Polygon,
@@ -48,6 +49,9 @@ const ZONE_ICONS = [
   "bicycle",
   "navigate",
 ];
+
+// ⚠️ Assure-toi que ta clé API Google est bien configurée ici
+const GOOGLE_API_KEY = "AIzaSyBcrUju7I0BuvpweVzbrmaJchGAZ_ewShU";
 
 export default function MapViewScreen() {
   const navigation = useNavigation();
@@ -78,6 +82,12 @@ export default function MapViewScreen() {
   const [showMapTypePicker, setShowMapTypePicker] = useState(false);
   const [showZonePicker, setShowZonePicker] = useState(false);
 
+  // Recherche & Suggestions
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   // Hooks
   const {
     isDrawingMode,
@@ -89,11 +99,8 @@ export default function MapViewScreen() {
     resetZone,
     hasEnoughPoints,
   } = useZoneDrawing();
-
   const { zones: allZones, loadZones, createZone } = useSafetyZonesContext();
-
-  // Zones pour le bracelet sélectionné
-  const zones = selectedBraceletId ? (allZones[selectedBraceletId] || []) : [];
+  const zones = selectedBraceletId ? allZones[selectedBraceletId] || [] : [];
 
   // Zone Modal
   const [showZoneModal, setShowZoneModal] = useState(false);
@@ -103,54 +110,69 @@ export default function MapViewScreen() {
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
-  }, [navigation]);
-
-  useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
   }, []);
 
-  // Charger les zones quand un bracelet est sélectionné
   useEffect(() => {
-    if (selectedBraceletId) {
-      loadZones(selectedBraceletId);
-    }
+    if (selectedBraceletId) loadZones(selectedBraceletId);
   }, [selectedBraceletId]);
 
-  // --- ZOOM INITIAL ---
-  useEffect(() => {
-    if (bracelets.length > 0 && !hasCenteredMap.current && !isDrawingMode) {
-      const paramId = params.braceletId
-        ? parseInt(params.braceletId as string)
-        : null;
-      const targetId = paramId || bracelets[0].id;
-      const target = bracelets.find((b) => b.id === targetId) || bracelets[0];
-
-      if (target) {
-        setSelectedBraceletId(target.id);
-        const index = bracelets.indexOf(target);
-        if (index !== -1) {
-          setTimeout(
-            () => flatListRef.current?.scrollToIndex({ index, animated: true }),
-            500
-          );
-        }
-        setTimeout(() => {
-          mapRef.current?.animateToRegion(
-            {
-              latitude: parseFloat(target.last_latitude as any),
-              longitude: parseFloat(target.last_longitude as any),
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            },
-            1000
-          );
-        }, 600);
-        hasCenteredMap.current = true;
-      }
+  // --- LOGIQUE AUTOCOMPLETE ---
+  const handleTextChange = async (text: string) => {
+    setSearchQuery(text);
+    if (text.length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
     }
-  }, [bracelets, params.braceletId]);
+
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+        text
+      )}&key=${GOOGLE_API_KEY}&language=fr&types=address|establishment`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === "OK") {
+        setSuggestions(data.predictions);
+        setShowSuggestions(true);
+      }
+    } catch (error) {
+      console.error("Autocomplete error:", error);
+    }
+  };
+
+  const handleSelectSuggestion = async (
+    placeId: string,
+    description: string
+  ) => {
+    setSearchQuery(description);
+    setShowSuggestions(false);
+    Keyboard.dismiss();
+    setIsSearching(true);
+
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry&key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "OK" && data.result.geometry) {
+        const { lat, lng } = data.result.geometry.location;
+        mapRef.current?.animateToRegion(
+          {
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          },
+          1000
+        );
+      }
+    } catch (error) {
+      Alert.alert("Erreur", "Impossible de charger ce lieu.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -159,7 +181,6 @@ export default function MapViewScreen() {
         (b) => b.last_latitude && b.last_longitude
       );
       setBracelets(validBracelets);
-
       const customizationData: Record<
         number,
         { color: string; photoUri?: string }
@@ -174,15 +195,16 @@ export default function MapViewScreen() {
       }
       setCustomizations(customizationData);
     } catch (error) {
-      console.log("Erreur chargement:", error);
+      console.log(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const animateToBracelet = (bracelet: Bracelet) => {
+  const onMarkerPress = (bracelet: Bracelet, index: number) => {
     if (isDrawingMode) return;
-    if (!bracelet.last_latitude || !bracelet.last_longitude) return;
+    setSelectedBraceletId(bracelet.id);
+    flatListRef.current?.scrollToIndex({ index, animated: true });
     mapRef.current?.animateToRegion(
       {
         latitude: parseFloat(bracelet.last_latitude as any),
@@ -194,42 +216,18 @@ export default function MapViewScreen() {
     );
   };
 
-  const onMomentumScrollEnd = (e: any) => {
-    if (isDrawingMode) return;
-    const contentOffset = e.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffset / (CARD_WIDTH + 10));
-    const targetBracelet = bracelets[index];
-    if (targetBracelet && targetBracelet.id !== selectedBraceletId) {
-      setSelectedBraceletId(targetBracelet.id);
-      animateToBracelet(targetBracelet);
-    }
-  };
-
-  const onMarkerPress = (bracelet: Bracelet, index: number) => {
-    if (isDrawingMode) return;
-    setSelectedBraceletId(bracelet.id);
-    flatListRef.current?.scrollToIndex({ index, animated: true });
-    animateToBracelet(bracelet);
-  };
-
   const toggleDrawingMode = () => {
-    if (isDrawingMode) stopDrawing();
-    else startDrawing();
-  };
-
-  const handleValidateZone = () => {
-    if (!hasEnoughPoints) {
-      Alert.alert("Zone incomplète", "Il faut au moins 3 points.");
-      return;
+    if (isDrawingMode) {
+      stopDrawing();
+      setSearchQuery("");
+      setShowSuggestions(false);
+    } else {
+      startDrawing();
     }
-    setShowZoneModal(true);
   };
 
   const saveZone = async () => {
-    if (!selectedBraceletId || !newZoneName.trim()) {
-      Alert.alert("Erreur", "Données manquantes");
-      return;
-    }
+    if (!selectedBraceletId || !newZoneName.trim()) return;
     try {
       const result = await createZone(selectedBraceletId, {
         name: newZoneName,
@@ -248,7 +246,7 @@ export default function MapViewScreen() {
         Alert.alert("Succès", "Zone créée !");
       }
     } catch (error) {
-      Alert.alert("Erreur", "Impossible de créer la zone");
+      Alert.alert("Erreur", "Création impossible");
     }
   };
 
@@ -288,16 +286,7 @@ export default function MapViewScreen() {
     colors.primary,
   ]);
 
-  const getZoneSelectText = () => {
-    if (zones.length === 0) return "Aucune zone";
-    if (selectedZoneId) {
-      const zone = zones.find((z) => z.id === selectedZoneId);
-      return zone ? zone.name : "Vue globale";
-    }
-    return "Vue globale";
-  };
-
-  if (loading) {
+  if (loading)
     return (
       <View
         style={[
@@ -308,7 +297,6 @@ export default function MapViewScreen() {
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
-  }
 
   return (
     <View style={styles.container}>
@@ -319,13 +307,21 @@ export default function MapViewScreen() {
           Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_DEFAULT
         }
         mapType={mapType}
-        onPress={(e) => isDrawingMode && addPoint(e.nativeEvent.coordinate)}
+        onPress={(e) => {
+          if (showSuggestions) {
+            setShowSuggestions(false);
+            Keyboard.dismiss();
+          } else if (isDrawingMode) {
+            addPoint(e.nativeEvent.coordinate);
+          }
+        }}
         showsUserLocation={true}
-        showsMyLocationButton={false}
-        scrollEnabled={true}
-        zoomEnabled={true}
-        rotateEnabled={!isDrawingMode}
-        pitchEnabled={!isDrawingMode}
+        initialRegion={{
+          latitude: 48.8566,
+          longitude: 2.3522,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }}
       >
         {markers}
         {!isDrawingMode &&
@@ -375,21 +371,8 @@ export default function MapViewScreen() {
         )}
       </MapView>
 
-      {/* OVERLAY UI PRINCIPAL
-          pointerEvents="box-none" est crucial pour que les zones vides laissent passer le touch vers la carte
-      */}
       <SafeAreaView style={styles.overlayContainer} pointerEvents="box-none">
-        {/* Ligne Flexible : [Retour] [Select] [Colonne Droite] */}
         <View style={styles.topLayoutRow} pointerEvents="box-none">
-          {/* 1. GAUCHE : Retour */}
-          {/* <TouchableOpacity
-            style={[styles.circleButton, { backgroundColor: colors.white }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity> */}
-
-          {/* Settings */}
           <TouchableOpacity
             style={[styles.circleButton, { backgroundColor: colors.white }]}
             onPress={() => router.push("/(modals)/settings")}
@@ -401,9 +384,85 @@ export default function MapViewScreen() {
             />
           </TouchableOpacity>
 
-          {/* 2. MILIEU : Selecteur (Flexible) */}
           <View style={styles.centerContainer} pointerEvents="box-none">
-            {!isDrawingMode && (
+            {isDrawingMode ? (
+              <View style={styles.searchWrapper}>
+                <View
+                  style={[
+                    styles.searchContainer,
+                    { backgroundColor: colors.white },
+                  ]}
+                >
+                  <Ionicons name="search" size={18} color={colors.primary} />
+                  <TextInput
+                    placeholder="Chercher une adresse..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={searchQuery}
+                    onChangeText={handleTextChange}
+                    style={styles.searchInput}
+                  />
+                  {isSearching ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : searchQuery ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSearchQuery("");
+                        setSuggestions([]);
+                      }}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={18}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {/* --- LISTE DES PROPOSITIONS --- */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <View
+                    style={[
+                      styles.suggestionsList,
+                      { backgroundColor: colors.white },
+                    ]}
+                  >
+                    <ScrollView
+                      keyboardShouldPersistTaps="handled"
+                      style={{ maxHeight: 200 }}
+                    >
+                      {suggestions.map((item) => (
+                        <TouchableOpacity
+                          key={item.place_id}
+                          style={styles.suggestionItem}
+                          onPress={() =>
+                            handleSelectSuggestion(
+                              item.place_id,
+                              item.description
+                            )
+                          }
+                        >
+                          <Ionicons
+                            name="location-outline"
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.suggestionText,
+                              { color: colors.textPrimary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {item.description}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            ) : (
               <TouchableOpacity
                 style={[
                   styles.zoneFakeSelect,
@@ -443,7 +502,11 @@ export default function MapViewScreen() {
                     style={[styles.zoneValue, { color: colors.textPrimary }]}
                     numberOfLines={1}
                   >
-                    {getZoneSelectText()}
+                    {zones.length === 0
+                      ? "Aucune zone"
+                      : selectedZoneId
+                      ? zones.find((z) => z.id === selectedZoneId)?.name
+                      : "Vue globale"}
                   </Text>
                 </View>
                 <Ionicons
@@ -455,37 +518,19 @@ export default function MapViewScreen() {
             )}
           </View>
 
-          {/* 3. DROITE : Colonne de boutons (Alignée en haut avec le reste) */}
           <View style={styles.rightColumn} pointerEvents="box-none">
-            {/* Notification */}
             <TouchableOpacity
               style={[styles.circleButton, { backgroundColor: colors.white }]}
               onPress={() => router.push("/(tabs)/notifications")}
             >
               <Ionicons name="notifications" size={24} color={colors.primary} />
             </TouchableOpacity>
-
-            {/* Settings */}
-            {/* <TouchableOpacity
-              style={[styles.circleButton, { backgroundColor: colors.white }]}
-              onPress={() => router.push("/settings")}
-            >
-              <Ionicons
-                name="settings-sharp"
-                size={24}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity> */}
-
-            {/* Map Type */}
             <TouchableOpacity
               style={[styles.circleButton, { backgroundColor: colors.white }]}
               onPress={() => setShowMapTypePicker(true)}
             >
               <Ionicons name="map" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
-
-            {/* Draw Zone (Espace) */}
             <TouchableOpacity
               style={[
                 styles.circleButton,
@@ -493,7 +538,6 @@ export default function MapViewScreen() {
                   backgroundColor: colors.white,
                   borderColor: isDrawingMode ? colors.danger : "transparent",
                   borderWidth: isDrawingMode ? 2 : 0,
-                  // marginTop: 8, // Petit séparateur visuel
                 },
               ]}
               onPress={toggleDrawingMode}
@@ -508,7 +552,11 @@ export default function MapViewScreen() {
         </View>
       </SafeAreaView>
 
-      <View style={[styles.bottomContainer, { bottom: insets.bottom + 20 }]}>
+      {/* Drawing Controls Bottom */}
+      <View
+        style={[styles.bottomContainer, { bottom: insets.bottom + 20 }]}
+        pointerEvents="box-none"
+      >
         {isDrawingMode ? (
           <View
             style={[styles.drawingControls, { backgroundColor: colors.white }]}
@@ -540,7 +588,10 @@ export default function MapViewScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleValidateZone}
+                onPress={() => {
+                  if (!hasEnoughPoints) return;
+                  setShowZoneModal(true);
+                }}
                 disabled={!hasEnoughPoints}
                 style={[
                   styles.smallButton,
@@ -562,20 +613,13 @@ export default function MapViewScreen() {
             data={bracelets}
             keyExtractor={(item) => item.id.toString()}
             horizontal
-            pagingEnabled={false}
             snapToInterval={CARD_WIDTH + 10}
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{
               paddingHorizontal: SPACING_FOR_CARD_INSET,
             }}
-            getItemLayout={(data, index) => ({
-              length: CARD_WIDTH + 10,
-              offset: (CARD_WIDTH + 10) * index,
-              index,
-            })}
-            onMomentumScrollEnd={onMomentumScrollEnd}
-            renderItem={({ item, index }) => (
+            renderItem={({ item }) => (
               <BraceletMapCard
                 item={item}
                 isSelected={selectedBraceletId === item.id}
@@ -598,7 +642,6 @@ export default function MapViewScreen() {
         onMapTypeChange={setMapType}
         isDark={isDark}
       />
-
       <ZonePickerTopSheet
         isVisible={showZonePicker}
         onClose={() => setShowZonePicker(false)}
@@ -611,12 +654,8 @@ export default function MapViewScreen() {
         isDark={isDark}
       />
 
-      <Modal
-        visible={showZoneModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowZoneModal(false)}
-      >
+      {/* Modal de création de zone inchangé */}
+      <Modal visible={showZoneModal} transparent={true} animationType="slide">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
@@ -629,7 +668,6 @@ export default function MapViewScreen() {
             >
               Nouvelle Zone
             </Text>
-
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
                 Nom
@@ -649,7 +687,6 @@ export default function MapViewScreen() {
                 autoFocus
               />
             </View>
-
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
                 Icône
@@ -688,7 +725,6 @@ export default function MapViewScreen() {
                 </View>
               </ScrollView>
             </View>
-
             <View style={styles.modalActions}>
               <TouchableOpacity
                 onPress={() => setShowZoneModal(false)}
@@ -736,42 +772,63 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
     elevation: 5,
   },
   drawingPointCenter: { width: 8, height: 8, borderRadius: 4 },
-
-  // CONTAINER UI GLOBAL (SafeArea)
   overlayContainer: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 16,
-    paddingTop: 10, // Petit espace en plus du SafeArea
+    paddingTop: 10,
   },
+  topLayoutRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  centerContainer: { flex: 1 },
 
-  // LIGNE PRINCIPALE DE LAYOUT
-  topLayoutRow: {
+  // RECHERCHE
+  searchWrapper: { flex: 1 },
+  searchContainer: {
     flexDirection: "row",
-    alignItems: "flex-start", // Important pour que la colonne droite descende
-    gap: 12, // Espace horizontal entre les 3 blocs
+    alignItems: "center",
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    elevation: 3,
   },
+  searchInput: { flex: 1, fontSize: 14, fontWeight: "500" },
+  suggestionsList: {
+    marginTop: 8,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    elevation: 8,
+    overflow: "hidden",
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#f0f0f0",
+    gap: 10,
+  },
+  suggestionText: { fontSize: 14, flex: 1 },
 
-  // BLOC SELECTEUR (Au milieu, flexible)
-  centerContainer: {
-    flex: 1, // Prend toute la place restante
-  },
   zoneFakeSelect: {
     flexDirection: "row",
     alignItems: "center",
-    height: 44, // Alignement exact avec les boutons
+    height: 44,
     paddingHorizontal: 12,
     borderRadius: 22,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 3,
   },
   zoneSelectContent: {
@@ -787,19 +844,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  zoneValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    flex: 1,
-  },
-
-  // BLOC DROITE (Colonne de boutons)
-  rightColumn: {
-    flexDirection: "column",
-    gap: 12, // Espace vertical entre les boutons
-  },
-
-  // BOUTONS RONDS
+  zoneValue: { fontSize: 13, fontWeight: "700", flex: 1 },
+  rightColumn: { flexDirection: "column", gap: 12 },
   circleButton: {
     width: 44,
     height: 44,
@@ -809,10 +855,8 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
     elevation: 4,
   },
-
   bottomContainer: { position: "absolute", left: 0, right: 0, height: 140 },
   drawingControls: {
     marginHorizontal: 16,
@@ -820,9 +864,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
     elevation: 5,
   },
   drawingHeader: {
@@ -851,9 +892,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
     elevation: 10,
   },
   zoneModalTitle: {

@@ -75,13 +75,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode; isAuthenti
 
       console.log('[WebSocket] Opening WebSocket connection to Reverb...');
 
-      const scheme = process.env.EXPO_PUBLIC_REVERB_SCHEME === 'https' ? 'wss' : 'ws';
       const host = process.env.EXPO_PUBLIC_REVERB_HOST;
       const port = process.env.EXPO_PUBLIC_REVERB_PORT;
       const key = process.env.EXPO_PUBLIC_REVERB_APP_KEY;
+      const reverbScheme = process.env.EXPO_PUBLIC_REVERB_SCHEME || 'https';
+
+      // Map HTTP scheme to ws:// and HTTPS scheme to wss://
+      const scheme = reverbScheme === 'http' ? 'ws' : 'wss';
+      console.log('[WebSocket] Reverb scheme:', reverbScheme, '| WebSocket scheme:', scheme);
 
       // Build WebSocket URL - NO auth token here, it goes in subscribe message
       const wsUrl = `${scheme}://${host}:${port}/app/${key}?protocol=7&client=js&version=7.0.0&flash=false`;
+      console.log('[WebSocket] WebSocket URL:', wsUrl);
 
       console.log('[WebSocket] Connecting to Reverb with auth...');
 
@@ -99,8 +104,12 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode; isAuthenti
               console.log('[WebSocket] Requesting channel auth from backend for:', channel);
               const token = await AsyncStorage.getItem('auth_token');
 
+              // API calls always use HTTPS (or HTTP in dev), not ws://
+              // Use same host as WebSocket for consistency
+              const authUrl = `${reverbScheme}://${host}:${port}/api/broadcasting/auth`;
+
               // Call the broadcasting/auth endpoint via API with Sanctum auth
-              const response = await axios.post('https://api.tracklify.app/api/broadcasting/auth', {
+              const response = await axios.post(authUrl, {
                 channel_name: channel,
                 socket_id: socketIdRef.current,
               }, {
@@ -405,4 +414,12 @@ export const useWebSocket = () => {
     throw new Error('useWebSocket must be used within WebSocketProvider');
   }
   return context;
+};
+
+/**
+ * Get the Echo instance for direct use in other contexts
+ * This is used by NotificationContext to subscribe to events
+ */
+export const getEchoInstance = () => {
+  return echoInstance;
 };

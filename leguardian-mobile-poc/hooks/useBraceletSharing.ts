@@ -75,13 +75,18 @@ export const useBraceletSharing = (braceletId: number | null) => {
 
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
+        console.log('[useBraceletSharing] Calling shareWithGuardian for bracelet:', braceletId, 'email:', email);
         await braceletSharingService.shareWithGuardian(braceletId, email, permissions);
+        console.log('[useBraceletSharing] Share request succeeded, refreshing list');
         // Refresh the list
         await fetchSharedGuardians();
         setState((prev) => ({ ...prev, loading: false }));
         return true;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Failed to share bracelet';
+      } catch (error: any) {
+        const errorMsg = error.response?.data?.error
+          || error.response?.data?.message
+          || (error instanceof Error ? error.message : 'Failed to share bracelet');
+        console.error('[useBraceletSharing] Share failed with error:', errorMsg);
         setState((prev) => ({
           ...prev,
           loading: false,

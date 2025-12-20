@@ -37,10 +37,21 @@ export interface UpdateZoneRequest {
 }
 
 // Notification types for bracelet sharing
-export interface NotificationSchedule {
-  enabled: boolean;
+export interface TimeBlock {
   start_hour: number; // 0-23
   end_hour: number; // 0-23
+}
+
+export interface NotificationSchedule {
+  enabled: boolean;
+  // New granular format: define different hours for each day
+  daily_config?: {
+    [day: number]: TimeBlock[]; // 0=Monday, 6=Sunday; each day has array of time blocks
+  };
+  // Legacy format - kept for backward compatibility
+  start_hour?: number; // 0-23
+  end_hour?: number; // 0-23
+  time_blocks?: TimeBlock[]; // Multiple time windows (global, not per-day)
   allowed_days: number[]; // 0 = lundi, 6 = dimanche
 }
 

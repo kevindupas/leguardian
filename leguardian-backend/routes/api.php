@@ -57,6 +57,10 @@ Route::prefix('mobile')->middleware('auth:sanctum')->group(function () {
     Route::post('bracelets/{bracelet}/sharing-invitations/accept', [BraceletSharingController::class, 'accept']);
     Route::post('bracelets/{bracelet}/sharing-invitations/decline', [BraceletSharingController::class, 'decline']);
 
+    // Notification Preferences
+    Route::get('bracelets/{bracelet}/shared-guardians/{targetGuardian}/notifications', [BraceletSharingController::class, 'getNotificationPermissions']);
+    Route::put('bracelets/{bracelet}/shared-guardians/{targetGuardian}/notifications', [BraceletSharingController::class, 'updateNotificationPermissions']);
+
     // Events
     Route::get('events', [BraceletController::class, 'getAllEvents']);
     Route::get('events/unresolved', [BraceletController::class, 'getUnresolvedEvents']);

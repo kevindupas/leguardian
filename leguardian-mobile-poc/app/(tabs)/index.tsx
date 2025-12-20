@@ -20,6 +20,7 @@ import { useI18n } from "../../contexts/I18nContext";
 import { getColors } from "../../constants/Colors";
 import { BraceletCard } from "../../components/BraceletCard";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function HomeScreen() {
   const { isDark } = useTheme();
   const { t } = useI18n();
   const colors = getColors(isDark);
+  const { isConnected, subscribeToAllBracelets, unsubscribeFromAllBracelets } = useWebSocket();
 
   const [bracelets, setBracelets] = useState<Bracelet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,19 +42,24 @@ export default function HomeScreen() {
     });
   }, [navigation]);
 
-  // Fetch Logic
+  // Load bracelets initially and subscribe to WebSocket updates
   useEffect(() => {
     fetchBracelets();
-    const pollInterval = setInterval(async () => {
-      try {
-        const data = await braceletService.getBracelets();
-        setBracelets(data);
-      } catch (error) {
-        console.log("[HomeScreen] Polling error");
-      }
-    }, 5000);
-    return () => clearInterval(pollInterval);
-  }, []);
+
+    // Subscribe to all bracelet updates via WebSocket
+    if (isConnected) {
+      console.log('[HomeScreen] WebSocket connected, subscribing to all bracelets');
+      subscribeToAllBracelets((update) => {
+        console.log('[HomeScreen] Received bracelet update via WebSocket');
+        // Reload bracelets to get fresh data
+        fetchBracelets();
+      });
+    }
+
+    return () => {
+      unsubscribeFromAllBracelets();
+    };
+  }, [isConnected, subscribeToAllBracelets, unsubscribeFromAllBracelets]);
 
   const fetchBracelets = async () => {
     try {

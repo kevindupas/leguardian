@@ -19,6 +19,7 @@ import { useI18n } from "../../contexts/I18nContext";
 import { getColors } from "../../constants/Colors";
 // Import du nouveau composant
 import { NotificationFilterBottomSheet } from "../../components/NotificationFilterBottomSheet";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function NotificationsScreen() {
   const { t } = useI18n();
   const colors = getColors(isDark);
   const params = useLocalSearchParams();
+  const { isConnected, subscribeToAllBracelets, unsubscribeFromAllBracelets } = useWebSocket();
 
   // States
   const [events, setEvents] = useState<BraceletEvent[]>([]);
@@ -59,10 +61,20 @@ export default function NotificationsScreen() {
     fetchEvents();
   }, [filterType, selectedBraceletId]);
 
+  // Subscribe to WebSocket updates instead of polling
   useEffect(() => {
-    const pollInterval = setInterval(fetchEvents, 5000);
-    return () => clearInterval(pollInterval);
-  }, [filterType, selectedBraceletId]);
+    if (isConnected) {
+      console.log('[NotificationsScreen] WebSocket connected, subscribing to bracelet updates');
+      subscribeToAllBracelets((update) => {
+        console.log('[NotificationsScreen] Received bracelet update via WebSocket, refreshing events');
+        fetchEvents();
+      });
+    }
+
+    return () => {
+      unsubscribeFromAllBracelets();
+    };
+  }, [isConnected, subscribeToAllBracelets, unsubscribeFromAllBracelets]);
 
   const fetchEvents = async () => {
     try {

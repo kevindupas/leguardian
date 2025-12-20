@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   TextInput,
   Switch,
-  Platform,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,10 +19,13 @@ import { getColors } from "../../constants/Colors";
 import { braceletService } from "../../services/braceletService";
 import { useSafetyZonesContext } from "../../contexts/SafetyZonesContext";
 import { useBraceletSharing } from "../../hooks/useBraceletSharing";
-import { SettingsZonesTab } from "../../components/SettingsZonesTab";
-import { BraceletNotificationPermissionsModal } from "../../components/BraceletNotificationPermissionsModal";
 import { useBraceletNotificationPermissions } from "../../hooks/useBraceletNotificationPermissions";
 import { NotificationPermissions } from "../../utils/types";
+import { BraceletNotificationPermissionsModal } from "../../components/BraceletNotificationPermissionsModal";
+// IMPORTS AJOUTÉS POUR LA GESTION DES ZONES
+import { ZoneEditModal } from "../../components/ZoneEditModal";
+import { ZoneShareModal } from "../../components/ZoneShareModal";
+import { useZoneSharing } from "../../hooks/useZoneSharing";
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -40,6 +42,8 @@ export default function SettingsScreen() {
   >("zones");
 
   const { zones: allZones, loadZones } = useSafetyZonesContext();
+
+  // Récupération des partages pour le bracelet sélectionné
   const {
     sharedGuardians,
     pendingInvitations,
@@ -50,14 +54,13 @@ export default function SettingsScreen() {
   } = useBraceletSharing(selectedBraceletId);
 
   // Zones pour le bracelet sélectionné
-  const zones = selectedBraceletId ? (allZones[selectedBraceletId] || []) : [];
+  const zones = selectedBraceletId ? allZones[selectedBraceletId] || [] : [];
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
     loadBracelets();
   }, []);
 
-  // Charger les zones quand un bracelet est sélectionné
   useEffect(() => {
     if (selectedBraceletId) {
       loadZones(selectedBraceletId);
@@ -118,7 +121,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* SECTION 1: SÉLECTEUR DE BRACELET (CAROUSEL) */}
+        {/* SÉLECTEUR DE BRACELET */}
         {bracelets.length > 0 && (
           <View style={styles.carouselContainer}>
             <ScrollView
@@ -197,10 +200,14 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {/* SECTION 2: TABS (SEGMENTED CONTROL) */}
+        {/* TABS */}
         <View style={styles.tabContainer}>
-          <View style={[styles.segmentTrack, { backgroundColor: "#e5e5ea" }]}>
-            {/* Note: j'utilise une couleur hardcodée pour le track gris clair style iOS, tu peux adapter */}
+          <View
+            style={[
+              styles.segmentTrack,
+              { backgroundColor: isDark ? "#333" : "#e5e5ea" },
+            ]}
+          >
             {[
               { key: "zones", label: "Zones", icon: "map" },
               { key: "sharing", label: "Partage", icon: "people" },
@@ -219,14 +226,22 @@ export default function SettingsScreen() {
                   <Ionicons
                     name={tab.icon as any}
                     size={16}
-                    color={isActive ? colors.primary : colors.textSecondary}
+                    color={
+                      isActive
+                        ? isDark
+                          ? "#000"
+                          : colors.textPrimary
+                        : colors.textSecondary
+                    }
                   />
                   <Text
                     style={[
                       styles.segmentText,
                       {
                         color: isActive
-                          ? colors.textPrimary
+                          ? isDark
+                            ? "#000"
+                            : colors.textPrimary
                           : colors.textSecondary,
                       },
                     ]}
@@ -239,16 +254,17 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* SECTION 3: CONTENU DYNAMIQUE */}
+        {/* CONTENU DYNAMIQUE */}
         <View style={styles.contentContainer}>
           {activeTab === "zones" && (
-            <SettingsZonesTab
-              braceletId={selectedBraceletId}
+            <ZonesContent
               zones={zones}
               colors={colors}
-              sharedGuardians={sharedGuardians}
+              braceletId={selectedBraceletId}
+              sharedGuardians={sharedGuardians} // Passé pour le partage de zone
             />
           )}
+
           {activeTab === "sharing" && (
             <SharingContent
               braceletId={selectedBraceletId}
@@ -261,6 +277,7 @@ export default function SettingsScreen() {
               onRevoke={revokeAccess}
             />
           )}
+
           {activeTab === "notifications" && (
             <NotificationsContent colors={colors} />
           )}
@@ -270,8 +287,229 @@ export default function SettingsScreen() {
   );
 }
 
-// --- SOUS-COMPOSANTS ---
+// ------------------------------------------------------------------
+// COMPOSANT CONTENU ZONES (CORRIGÉ AVEC ACTIONS)
+// ------------------------------------------------------------------
+function ZonesContent({ zones, colors, braceletId, sharedGuardians }: any) {
+  const {
+    updateZoneInContext,
+    deleteZoneFromContext,
+    createZone: createZoneContext,
+  } = useSafetyZonesContext();
+  const { shareWithGuardian } = useZoneSharing(braceletId, null);
 
+  const [editingZone, setEditingZone] = useState<any>(null);
+  const [sharingZone, setSharingZone] = useState<any>(null);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
+
+  // --- ACTIONS ---
+  const handleDelete = (zone: any) => {
+    Alert.alert(
+      "Supprimer la zone",
+      `Voulez-vous vraiment supprimer "${zone.name}" ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            if (braceletId) await deleteZoneFromContext(braceletId, zone.id);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEdit = (zone: any) => {
+    setEditingZone(zone);
+    setIsEditModalVisible(true);
+  };
+
+  const handleShare = (zone: any) => {
+    setSharingZone(zone);
+    setIsShareModalVisible(true);
+  };
+
+  const handleSaveZone = async (
+    name: string,
+    icon: string,
+    coordinates: any
+  ) => {
+    if (!braceletId) return;
+
+    if (editingZone) {
+      // Update
+      await updateZoneInContext(braceletId, editingZone.id, {
+        name,
+        icon,
+        coordinates,
+      });
+      setEditingZone(null);
+    } else {
+      // Create (si on ajoutait un bouton créer ici)
+      await createZoneContext(braceletId, {
+        name,
+        icon,
+        coordinates,
+        notify_on_entry: true,
+        notify_on_exit: true,
+      });
+    }
+    setIsEditModalVisible(false);
+  };
+
+  const handleShareSubmit = async (guardianId: number, permissions: any) => {
+    if (!braceletId || !sharingZone) return;
+    await shareWithGuardian(guardianId, permissions);
+    setIsShareModalVisible(false);
+    setSharingZone(null);
+    Alert.alert("Succès", "Zone partagée !");
+  };
+
+  return (
+    <View>
+      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+        ZONES DE SÉCURITÉ ({zones.length})
+      </Text>
+
+      {zones.length === 0 ? (
+        <View style={[styles.emptyCard, { backgroundColor: colors.white }]}>
+          <View
+            style={[styles.emptyIconBg, { backgroundColor: colors.lightBg }]}
+          >
+            <Ionicons
+              name="map-outline"
+              size={32}
+              color={colors.textSecondary}
+            />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+            Aucune zone définie
+          </Text>
+          <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+            Créez des zones sûres sur la carte pour être alerté des entrées et
+            sorties.
+          </Text>
+        </View>
+      ) : (
+        <View style={[styles.cardGroup, { backgroundColor: colors.white }]}>
+          {zones.map((zone: any, index: number) => (
+            <View key={zone.id}>
+              <View style={styles.listItem}>
+                {/* ICONE */}
+                <View
+                  style={[
+                    styles.listIcon,
+                    { backgroundColor: colors.primary + "15" },
+                  ]}
+                >
+                  <Ionicons
+                    name={zone.icon || "navigate"}
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+
+                {/* TEXTES */}
+                <View style={styles.listTextContainer}>
+                  <Text
+                    style={[styles.listTitle, { color: colors.textPrimary }]}
+                  >
+                    {zone.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.listSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {zone.coordinates?.length || 0} points
+                  </Text>
+                </View>
+
+                {/* BOUTONS D'ACTION (Restaurés !) */}
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    onPress={() => handleShare(zone)}
+                    style={[
+                      styles.miniBtn,
+                      { backgroundColor: colors.primary + "15" },
+                    ]}
+                  >
+                    <Ionicons
+                      name="share-social"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleEdit(zone)}
+                    style={[
+                      styles.miniBtn,
+                      { backgroundColor: colors.warning + "15" },
+                    ]}
+                  >
+                    <Ionicons name="pencil" size={16} color={colors.warning} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleDelete(zone)}
+                    style={[
+                      styles.miniBtn,
+                      { backgroundColor: colors.danger + "15" },
+                    ]}
+                  >
+                    <Ionicons name="trash" size={16} color={colors.danger} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              {index < zones.length - 1 && (
+                <View
+                  style={[
+                    styles.separator,
+                    { backgroundColor: colors.lightBg },
+                  ]}
+                />
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* MODALES */}
+      <ZoneEditModal
+        visible={isEditModalVisible}
+        zone={editingZone}
+        colors={colors}
+        onSave={handleSaveZone}
+        onCancel={() => {
+          setIsEditModalVisible(false);
+          setEditingZone(null);
+        }}
+      />
+
+      {sharingZone && (
+        <ZoneShareModal
+          visible={isShareModalVisible}
+          zoneName={sharingZone.name}
+          guardians={sharedGuardians}
+          colors={colors}
+          onShare={handleShareSubmit}
+          onCancel={() => {
+            setIsShareModalVisible(false);
+            setSharingZone(null);
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+// ------------------------------------------------------------------
+// COMPOSANT CONTENU PARTAGE
+// ------------------------------------------------------------------
 function SharingContent({
   sharedGuardians,
   pendingInvitations,
@@ -287,7 +525,7 @@ function SharingContent({
   const [selectedGuardian, setSelectedGuardian] = useState<any>(null);
   const [permissionsModalVisible, setPermissionsModalVisible] = useState(false);
 
-  const { permissions, updatePermissions } = useBraceletNotificationPermissions(
+  const { permissions, error, updatePermissions } = useBraceletNotificationPermissions(
     braceletId,
     selectedGuardian?.id
   );
@@ -296,11 +534,18 @@ function SharingContent({
     if (!email.trim()) return;
     setSharing(true);
     try {
-      await onShare(email);
-      setEmail("");
-      Alert.alert("Succès", "Invitation envoyée");
-    } catch {
-      Alert.alert("Erreur", "Impossible de partager");
+      const success = await onShare(email);
+      if (success) {
+        setEmail("");
+        Alert.alert("Succès", "Invitation envoyée");
+      } else {
+        // Error is handled by the hook - show it to user
+        const errorMsg = error || "Impossible de partager - vérifiez que l'email est enregistré";
+        Alert.alert("Erreur", errorMsg);
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || "Impossible de partager";
+      Alert.alert("Erreur", errorMsg);
     } finally {
       setSharing(false);
     }
@@ -311,17 +556,30 @@ function SharingContent({
     setPermissionsModalVisible(true);
   };
 
-  const handleSavePermissions = async (newPermissions: NotificationPermissions) => {
-    const success = await updatePermissions(newPermissions);
-    if (success) {
-      setPermissionsModalVisible(false);
-      setSelectedGuardian(null);
+  const handleSavePermissions = async (
+    newPermissions: NotificationPermissions
+  ) => {
+    try {
+      console.log('[SharingContent] handleSavePermissions called with braceletId:', braceletId, 'guardianId:', selectedGuardian?.id);
+      const success = await updatePermissions(newPermissions);
+      console.log('[SharingContent] updatePermissions returned:', success, 'error:', error);
+      if (success) {
+        Alert.alert("Succès", "Préférences de notification sauvegardées");
+        setPermissionsModalVisible(false);
+        setSelectedGuardian(null);
+      } else {
+        const errorMsg = error || "Impossible de sauvegarder les préférences";
+        Alert.alert("Erreur", errorMsg);
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || "Impossible de sauvegarder les préférences";
+      console.error('[SharingContent] handleSavePermissions error:', err);
+      Alert.alert("Erreur", errorMsg);
     }
   };
 
   return (
-    <View style={{ gap: 24 }}>
-      {/* CARD D'INVITATION */}
+    <View style={{ marginVertical: 12 }}>
       <View style={[styles.inviteBox, { backgroundColor: colors.white }]}>
         <View style={styles.inviteHeader}>
           <View
@@ -343,7 +601,6 @@ function SharingContent({
             </Text>
           </View>
         </View>
-
         <View style={[styles.inputRow, { backgroundColor: colors.lightBg }]}>
           <TextInput
             style={[styles.input, { color: colors.textPrimary }]}
@@ -374,7 +631,6 @@ function SharingContent({
         </View>
       </View>
 
-      {/* INVITATIONS REÇUES */}
       {pendingInvitations.length > 0 && (
         <View>
           <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
@@ -450,7 +706,6 @@ function SharingContent({
         </View>
       )}
 
-      {/* GARDIENS ACTIFS */}
       <View>
         <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
           GARDIENS ACTIFS ({sharedGuardians.length})
@@ -524,7 +779,7 @@ function SharingContent({
                       ]}
                     >
                       <Ionicons
-                        name="remove-circle-outline"
+                        name="trash-outline"
                         size={18}
                         color={colors.danger}
                       />
@@ -545,8 +800,7 @@ function SharingContent({
         )}
       </View>
 
-      {/* Notification Permissions Modal */}
-      {selectedGuardian && permissions !== null && (
+      {selectedGuardian && permissions && (
         <BraceletNotificationPermissionsModal
           visible={permissionsModalVisible}
           guardianName={selectedGuardian.name}
@@ -563,6 +817,9 @@ function SharingContent({
   );
 }
 
+// ------------------------------------------------------------------
+// COMPOSANT CONTENU NOTIFICATIONS
+// ------------------------------------------------------------------
 function NotificationsContent({ colors }: any) {
   const [notifs, setNotifs] = useState({
     zoneEntry: true,
@@ -653,9 +910,7 @@ const NotificationRow = ({
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -669,20 +924,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "flex-start",
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-  },
+  headerTitle: { fontSize: 22, fontWeight: "800" },
 
-  // CAROUSEL BRACELETS
-  carouselContainer: {
-    marginBottom: 20,
-  },
-  carouselContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 12,
-  },
+  // CAROUSEL
+  carouselContainer: { marginBottom: 20 },
+  carouselContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
   deviceCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -711,23 +957,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  deviceName: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  deviceCode: {
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  checkIcon: {
-    marginLeft: "auto",
-  },
+  deviceName: { fontSize: 14, fontWeight: "700" },
+  deviceCode: { fontSize: 11, fontWeight: "500" },
+  checkIcon: { marginLeft: "auto" },
 
   // TABS
-  tabContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
+  tabContainer: { paddingHorizontal: 16, marginBottom: 24 },
   segmentTrack: {
     flexDirection: "row",
     padding: 4,
@@ -750,15 +985,10 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  segmentText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  segmentText: { fontSize: 13, fontWeight: "600" },
 
   // CONTENT GENERIC
-  contentContainer: {
-    paddingHorizontal: 16,
-  },
+  contentContainer: { paddingHorizontal: 16 },
   sectionHeader: {
     fontSize: 12,
     fontWeight: "700",
@@ -767,11 +997,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 12,
   },
-  cardGroup: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginBottom: 24,
-  },
+  cardGroup: { borderRadius: 16, overflow: "hidden", marginBottom: 24 },
   listItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -792,23 +1018,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  listTextContainer: {
-    flex: 1,
-  },
-  listTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  listSubtitle: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  separator: {
-    height: 1,
-    marginLeft: 60, // Indent for ios style
-  },
-  deleteAction: {
-    padding: 4,
+  listTextContainer: { flex: 1 },
+  listTitle: { fontSize: 16, fontWeight: "600" },
+  listSubtitle: { fontSize: 13, marginTop: 2 },
+  separator: { height: 1, marginLeft: 60 },
+
+  // ACTIONS ROW (NEW)
+  actionsRow: { flexDirection: "row", gap: 8 },
+  miniBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   // EMPTY STATE
@@ -826,27 +1048,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 18,
-  },
+  emptyTitle: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
+  emptySub: { fontSize: 13, textAlign: "center", lineHeight: 18 },
 
   // SHARING
-  inviteBox: {
-    borderRadius: 16,
-    padding: 16,
-  },
-  inviteHeader: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
+  inviteBox: { borderRadius: 16, padding: 16 },
+  inviteHeader: { flexDirection: "row", gap: 12, marginBottom: 16 },
   iconCircle: {
     width: 36,
     height: 36,
@@ -862,12 +1069,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
   },
-  input: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-  },
+  input: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
   sendBtn: {
     width: 36,
     height: 36,

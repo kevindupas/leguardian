@@ -51,7 +51,7 @@ export default function useBraceletUpdates(
         forceTLS: process.env.EXPO_PUBLIC_REVERB_SCHEME === 'https',
         disableStats: true,
         enabledTransports: ['ws', 'wss'],
-        authEndpoint: `${process.env.EXPO_PUBLIC_API_URL || 'https://api.tracklify.app'}/api/broadcasting/auth`,
+        authEndpoint: process.env.EXPO_PUBLIC_API_URL,
         auth: {
           headers: {
             Authorization: `Bearer ${token}`,

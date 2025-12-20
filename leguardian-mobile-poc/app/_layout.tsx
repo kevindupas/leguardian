@@ -28,7 +28,7 @@ function RootLayoutContent() {
   return (
     <SafetyZonesProvider>
       <WebSocketProvider isAuthenticated={isAuthenticated}>
-        <NotificationProvider>
+        <NotificationProvider isAuthenticated={isAuthenticated}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="login" />

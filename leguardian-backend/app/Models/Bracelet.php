@@ -65,7 +65,7 @@ class Bracelet extends Model
     public function guardians(): BelongsToMany
     {
         return $this->belongsToMany(Guardian::class, 'bracelet_guardian')
-                    ->withPivot('role', 'can_edit', 'can_view_location', 'can_view_events', 'can_send_commands', 'shared_at', 'accepted_at')
+                    ->withPivot('role', 'can_edit', 'can_view_location', 'can_view_events', 'can_send_commands', 'shared_at', 'accepted_at', 'notification_preferences')
                     ->withTimestamps();
     }
 

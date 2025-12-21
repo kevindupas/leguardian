@@ -150,7 +150,7 @@ export const BraceletMapCard: React.FC<BraceletMapCardProps> = ({
 const styles = StyleSheet.create({
   cardContainer: {
     width: CARD_WIDTH,
-    height: 130,
+    // height: 130,
     borderRadius: 20,
     marginRight: 10,
     padding: 16,

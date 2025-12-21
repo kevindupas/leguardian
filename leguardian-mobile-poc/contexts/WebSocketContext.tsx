@@ -57,11 +57,38 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode; isAuthenti
   const allBraceletsCallbackRef = useRef<((update: BraceletUpdate) => void) | null>(null);
   const socketIdRef = useRef<string>('');
 
+  // Clean up stale WebSocket instance from previous hot reloads on mount
+  useEffect(() => {
+    return () => {
+      // On unmount, clean up the global echoInstance
+      if (echoInstance?.ws) {
+        try {
+          echoInstance.ws.close();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+      }
+      echoInstance = null;
+    };
+  }, []);
+
   const connect = useCallback(async () => {
     if (isConnected || isConnecting) return;
 
     try {
       setIsConnecting(true);
+
+      // Clean up any stale WebSocket instance from hot reloads before creating a new one
+      if (echoInstance?.ws) {
+        console.log('[WebSocket] Closing stale WebSocket instance before reconnecting...');
+        try {
+          echoInstance.ws.close();
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+      echoInstance = null;
+
       console.log('[WebSocket] Starting connection...');
 
       // Get auth token

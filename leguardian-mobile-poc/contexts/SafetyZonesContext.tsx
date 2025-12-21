@@ -47,19 +47,23 @@ export function SafetyZonesProvider({ children }: { children: ReactNode }) {
     braceletId: number,
     zone: CreateZoneRequest
   ): Promise<SafetyZone | null> => {
+    console.log('[SafetyZonesContext] createZone called with braceletId:', braceletId);
     setLoading(true);
     try {
+      console.log('[SafetyZonesContext] Calling safetyZoneService.createZone...');
       const newZone = await safetyZoneService.createZone(braceletId, zone);
+      console.log('[SafetyZonesContext] Zone created, updating context state...');
       setZones((prev) => ({
         ...prev,
         [braceletId]: [...(prev[braceletId] || []), newZone],
       }));
       setError(null);
+      console.log('[SafetyZonesContext] Zone successfully saved to context');
       return newZone;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Erreur lors de la création';
       setError(errorMsg);
-      console.error('Error creating zone:', err);
+      console.error('[SafetyZonesContext] Error creating zone:', err);
       return null;
     } finally {
       setLoading(false);

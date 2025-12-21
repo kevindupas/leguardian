@@ -13,8 +13,16 @@ export const safetyZoneService = {
   },
 
   async createZone(braceletId: number, zone: CreateZoneRequest): Promise<SafetyZone> {
-    const response = await api.post(`/mobile/bracelets/${braceletId}/zones`, zone);
-    return response.data;
+    console.log('[SafetyZoneService] Creating zone for bracelet:', braceletId);
+    console.log('[SafetyZoneService] Zone data:', zone);
+    try {
+      const response = await api.post(`/mobile/bracelets/${braceletId}/zones`, zone);
+      console.log('[SafetyZoneService] Zone created successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('[SafetyZoneService] Error creating zone:', error);
+      throw error;
+    }
   },
 
   async updateZone(braceletId: number, zoneId: number, zone: UpdateZoneRequest): Promise<SafetyZone> {

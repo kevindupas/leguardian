@@ -1,3 +1,7 @@
 */node_modules/
 bracelet/node_modules
 leguardian-mobile-poc/node_modules
+.env
+leguardian-mobile-poc/.env
+/*/.env
+leguardian-mobile-poc/.env

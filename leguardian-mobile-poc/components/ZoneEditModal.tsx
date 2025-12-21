@@ -25,8 +25,7 @@ import MapView, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { findBestInsertionIndex, Coordinate } from "../utils/geoUtils";
 
-// ⚠️ METS TA CLÉ ICI
-const GOOGLE_API_KEY = "AIzaSyBcrUju7I0BuvpweVzbrmaJchGAZ_ewShU";
+const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 const ZONE_ICONS = [
   "home",

@@ -127,6 +127,19 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'discord' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'handler' => \App\Logging\DiscordHandler::class,
+            'handler_with' => [
+                'webhooks' => [
+                    'error' => env('DISCORD_WEBHOOK_ERROR'),
+                    'warning' => env('DISCORD_WEBHOOK_WARNING'),
+                    'info' => env('DISCORD_WEBHOOK_INFO'),
+                ],
+            ],
+        ],
+
     ],
 
 ];

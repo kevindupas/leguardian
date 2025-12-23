@@ -17,6 +17,7 @@ class SafetyZone extends Model
         'coordinates',
         'notify_on_entry',
         'notify_on_exit',
+        'type',
     ];
 
     protected $casts = [

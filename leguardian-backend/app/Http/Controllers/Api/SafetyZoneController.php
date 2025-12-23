@@ -48,6 +48,7 @@ class SafetyZoneController extends Controller
             'coordinates.*.longitude' => 'required|numeric|between:-180,180',
             'notify_on_entry' => 'boolean',
             'notify_on_exit' => 'boolean',
+            'type' => 'nullable|string|in:polygon,circle',
         ]);
 
         // Create the zone
@@ -58,6 +59,7 @@ class SafetyZoneController extends Controller
             'notify_on_entry' => $validated['notify_on_entry'] ?? true,
             'notify_on_exit' => $validated['notify_on_exit'] ?? true,
             'created_by_guardian_id' => $guardian->id,
+            'type' => $validated['type'] ?? 'polygon',
         ]);
 
         return response()->json($zone, 201);
@@ -110,6 +112,7 @@ class SafetyZoneController extends Controller
             'coordinates.*.longitude' => 'required_with:coordinates|numeric|between:-180,180',
             'notify_on_entry' => 'sometimes|boolean',
             'notify_on_exit' => 'sometimes|boolean',
+            'type' => 'nullable|string|in:polygon,circle',
         ]);
 
         $zone->update($validated);

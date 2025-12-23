@@ -13,12 +13,12 @@ import {
   Keyboard,
   LayoutAnimation,
   Alert,
-  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, {
   Marker,
   Polygon,
+  Circle,
   PROVIDER_GOOGLE,
   PROVIDER_DEFAULT,
 } from "react-native-maps";
@@ -57,12 +57,18 @@ export const ZoneEditModal: React.FC<any> = ({
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Type de zone (polygon ou circle) - modifiable par l'utilisateur
+  const [zoneType, setZoneType] = useState<"polygon" | "circle">("polygon");
+  const [circleRadius, setCircleRadius] = useState(500);
+
   // 1. Initialisation des données
   useEffect(() => {
     if (visible) {
       setZoneName(zone?.name || "");
       setSelectedIcon(zone?.icon || "home");
       setCoordinates(zone?.coordinates || []);
+      setZoneType((zone?.type as "polygon" | "circle") || "polygon");
+      setCircleRadius(zone?.radius || 500);
       setSearchQuery("");
     }
   }, [visible, zone]);
@@ -140,6 +146,14 @@ export const ZoneEditModal: React.FC<any> = ({
     }
     const { latitude, longitude } = e.nativeEvent.coordinate;
     const newPoint = { latitude, longitude };
+
+    // Pour les cercles : définir le centre (un seul point)
+    if (zoneType === "circle") {
+      setCoordinates([newPoint]);
+      return;
+    }
+
+    // Pour les polygones : ajouter des points
     if (coordinates.length < 3) {
       setCoordinates((prev) => [...prev, newPoint]);
     } else {
@@ -155,13 +169,31 @@ export const ZoneEditModal: React.FC<any> = ({
       Alert.alert("Nom requis", "Donnez un nom à cette zone");
       return;
     }
-    if (coordinates.length < 3) {
-      Alert.alert("Zone incomplète", "Il faut au moins 3 points");
-      return;
+    if (zoneType === "circle") {
+      // For circles, we only need center point
+      if (coordinates.length < 1) {
+        Alert.alert("Zone incomplète", "Définissez un centre pour le cercle");
+        return;
+      }
+    } else {
+      // For polygons, we need at least 3 points
+      if (coordinates.length < 3) {
+        Alert.alert("Zone incomplète", "Il faut au moins 3 points");
+        return;
+      }
     }
     setSaving(true);
     try {
-      await onSave(zoneName, selectedIcon, coordinates);
+      if (zoneType === "circle") {
+        // Pass circle data with radius
+        await onSave(zoneName, selectedIcon, coordinates, {
+          type: "circle",
+          radius: circleRadius,
+        });
+      } else {
+        // Pass polygon data
+        await onSave(zoneName, selectedIcon, coordinates, { type: "polygon" });
+      }
     } finally {
       setSaving(false);
     }
@@ -185,32 +217,59 @@ export const ZoneEditModal: React.FC<any> = ({
             longitudeDelta: 0.05,
           }}
         >
-          {coordinates.length > 0 && (
-            <Polygon
-              coordinates={coordinates}
-              fillColor={`${colors.primary}33`}
-              strokeColor={colors.primary}
-              strokeWidth={3}
-            />
-          )}
-          {coordinates.map((coord, idx) => (
-            <Marker
-              key={`p-${idx}`}
-              coordinate={coord}
-              draggable
-              onDragEnd={(e) => {
-                const newCoords = [...coordinates];
-                newCoords[idx] = e.nativeEvent.coordinate;
-                setCoordinates(newCoords);
-              }}
-              onPress={(e) => {
-                e.stopPropagation();
-                setCoordinates((prev) => prev.filter((_, i) => i !== idx));
-              }}
-            >
-              <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-            </Marker>
-          ))}
+          {zoneType === "circle" && coordinates.length > 0 ? (
+            <>
+              <Circle
+                center={coordinates[0]}
+                radius={circleRadius}
+                strokeColor={colors.primary}
+                fillColor={`${colors.primary}33`}
+                strokeWidth={3}
+              />
+              <Marker
+                coordinate={coordinates[0]}
+                draggable
+                onDragEnd={(e) => {
+                  const newCoords = [...coordinates];
+                  newCoords[0] = e.nativeEvent.coordinate;
+                  setCoordinates(newCoords);
+                }}
+              >
+                <View
+                  style={[styles.dot, { backgroundColor: colors.primary }]}
+                />
+              </Marker>
+            </>
+          ) : zoneType === "polygon" && coordinates.length > 0 ? (
+            <>
+              <Polygon
+                coordinates={coordinates}
+                fillColor={`${colors.primary}33`}
+                strokeColor={colors.primary}
+                strokeWidth={3}
+              />
+              {coordinates.map((coord, idx) => (
+                <Marker
+                  key={`p-${idx}`}
+                  coordinate={coord}
+                  draggable
+                  onDragEnd={(e) => {
+                    const newCoords = [...coordinates];
+                    newCoords[idx] = e.nativeEvent.coordinate;
+                    setCoordinates(newCoords);
+                  }}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setCoordinates((prev) => prev.filter((_, i) => i !== idx));
+                  }}
+                >
+                  <View
+                    style={[styles.dot, { backgroundColor: colors.primary }]}
+                  />
+                </Marker>
+              ))}
+            </>
+          ) : null}
         </MapView>
 
         {/* TOP BAR : RECHERCHE & RETOUR */}
@@ -301,10 +360,149 @@ export const ZoneEditModal: React.FC<any> = ({
                 ]}
               >
                 <Text style={[styles.pointText, { color: colors.primary }]}>
-                  {coordinates.length} pts
+                  {zoneType === "circle"
+                    ? "Cercle"
+                    : `${coordinates.length} pts`}
                 </Text>
               </View>
             </View>
+
+            {/* Sélecteur de type de zone */}
+            <View
+              style={{
+                flexDirection: "row",
+                borderBottomWidth: 1,
+                borderBottomColor: colors.lightBg,
+                marginBottom: 12,
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderBottomWidth: zoneType === "polygon" ? 2 : 0,
+                  borderBottomColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onPress={() => {
+                  setZoneType("polygon");
+                  setCoordinates([]);
+                }}
+              >
+                <Ionicons
+                  name="share-social"
+                  size={18}
+                  color={
+                    zoneType === "polygon"
+                      ? colors.primary
+                      : colors.textSecondary
+                  }
+                  style={{ marginBottom: 4 }}
+                />
+                <Text
+                  style={{
+                    color:
+                      zoneType === "polygon"
+                        ? colors.primary
+                        : colors.textSecondary,
+                    fontWeight: zoneType === "polygon" ? "700" : "500",
+                    fontSize: 12,
+                  }}
+                >
+                  Polygone ({coordinates.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderBottomWidth: zoneType === "circle" ? 2 : 0,
+                  borderBottomColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onPress={() => {
+                  setZoneType("circle");
+                  setCoordinates([]);
+                }}
+              >
+                <Ionicons
+                  name="radio-button-off"
+                  size={18}
+                  color={
+                    zoneType === "circle"
+                      ? colors.primary
+                      : colors.textSecondary
+                  }
+                  style={{ marginBottom: 4 }}
+                />
+                <Text
+                  style={{
+                    color:
+                      zoneType === "circle"
+                        ? colors.primary
+                        : colors.textSecondary,
+                    fontWeight: zoneType === "circle" ? "700" : "500",
+                    fontSize: 12,
+                  }}
+                >
+                  Cercle
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Contrôle du rayon si cercle */}
+            {zoneType === "circle" && coordinates.length > 0 && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 4,
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+                  Rayon :{" "}
+                  <Text
+                    style={{ fontWeight: "800", color: colors.textPrimary }}
+                  >
+                    {(circleRadius / 1000).toFixed(1)} km
+                  </Text>
+                </Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setCircleRadius(Math.max(100, circleRadius - 100))
+                    }
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: "#F5F5F5",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons name="remove" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setCircleRadius(circleRadius + 100)}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: "#F5F5F5",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons name="add" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {/* Sélecteur d'icônes avec padding pour éviter le crop */}
             <View style={styles.iconListWrapper}>

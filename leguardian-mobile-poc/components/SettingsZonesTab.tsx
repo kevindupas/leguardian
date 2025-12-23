@@ -18,6 +18,8 @@ interface Zone {
   name: string;
   icon?: string | null | undefined;
   coordinates: Array<{ latitude: number; longitude: number }>;
+  type?: "polygon" | "circle";
+  radius?: number;
 }
 
 interface SettingsZonesTabProps {
@@ -81,7 +83,8 @@ export const SettingsZonesTab: React.FC<SettingsZonesTabProps> = ({
   const handleSaveZone = async (
     name: string,
     icon: string,
-    coordinates: Array<{ latitude: number; longitude: number }>
+    coordinates: Array<{ latitude: number; longitude: number }>,
+    zoneData?: { type: "polygon" | "circle"; radius?: number }
   ) => {
     if (!braceletId) return;
 
@@ -89,11 +92,21 @@ export const SettingsZonesTab: React.FC<SettingsZonesTabProps> = ({
     try {
       if (editingZone) {
         // Update zone
-        const success = await updateZoneInContext(braceletId, editingZone.id, {
+        const updatePayload: any = {
           name,
           icon,
           coordinates,
-        });
+        };
+
+        // Add type and radius if provided
+        if (zoneData?.type) {
+          updatePayload.type = zoneData.type;
+          if (zoneData.type === "circle" && zoneData.radius) {
+            updatePayload.radius = zoneData.radius;
+          }
+        }
+
+        const success = await updateZoneInContext(braceletId, editingZone.id, updatePayload);
         if (success) {
           Alert.alert('Succès', 'Zone mise à jour');
           setIsEditModalVisible(false);
@@ -101,13 +114,25 @@ export const SettingsZonesTab: React.FC<SettingsZonesTabProps> = ({
         }
       } else {
         // Create new zone
-        const result = await createZoneContext(braceletId, {
+        const createPayload: any = {
           name,
           icon,
           coordinates,
           notify_on_entry: true,
           notify_on_exit: true,
-        });
+        };
+
+        // Add type and radius if provided
+        if (zoneData?.type) {
+          createPayload.type = zoneData.type;
+          if (zoneData.type === "circle" && zoneData.radius) {
+            createPayload.radius = zoneData.radius;
+          }
+        } else {
+          createPayload.type = "polygon";
+        }
+
+        const result = await createZoneContext(braceletId, createPayload);
         if (result) {
           Alert.alert('Succès', 'Zone créée');
           setIsEditModalVisible(false);

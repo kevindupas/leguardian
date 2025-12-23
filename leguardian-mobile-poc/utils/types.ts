@@ -12,6 +12,8 @@ export interface SafetyZone {
   name: string;
   icon?: string | null;
   coordinates: Coordinate[];
+  type?: "polygon" | "circle";
+  radius?: number;
   notify_on_entry: boolean;
   notify_on_exit: boolean;
   created_at: string;
@@ -23,6 +25,8 @@ export interface CreateZoneRequest {
   name: string;
   icon?: string | null;
   coordinates: Coordinate[];
+  type?: "polygon" | "circle";
+  radius?: number;
   notify_on_entry?: boolean;
   notify_on_exit?: boolean;
 }
@@ -32,6 +36,8 @@ export interface UpdateZoneRequest {
   name?: string;
   icon?: string | null;
   coordinates?: Coordinate[];
+  type?: "polygon" | "circle";
+  radius?: number;
   notify_on_entry?: boolean;
   notify_on_exit?: boolean;
 }

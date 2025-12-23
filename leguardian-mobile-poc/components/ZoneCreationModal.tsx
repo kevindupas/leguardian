@@ -28,6 +28,10 @@ interface ZoneCreationModalProps {
   onZoneNameChange: (name: string) => void;
   selectedZoneIcon: string;
   onIconSelect: (icon: string) => void;
+  zoneType: "polygon" | "circle";
+  onZoneTypeChange: (type: "polygon" | "circle") => void;
+  circleRadius: number;
+  onCircleRadiusChange: (radius: number) => void;
   onCancel: () => void;
   onSave: () => void;
   isDark: boolean;
@@ -39,6 +43,10 @@ export const ZoneCreationModal: React.FC<ZoneCreationModalProps> = ({
   onZoneNameChange,
   selectedZoneIcon,
   onIconSelect,
+  zoneType,
+  onZoneTypeChange,
+  circleRadius,
+  onCircleRadiusChange,
   onCancel,
   onSave,
   isDark,
@@ -107,6 +115,135 @@ export const ZoneCreationModal: React.FC<ZoneCreationModalProps> = ({
               autoFocus
             />
           </View>
+
+          {/* Type Selector */}
+          <View style={{ marginBottom: 20 }}>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "600",
+                marginBottom: 8,
+                textTransform: "uppercase",
+                color: colors.textSecondary,
+              }}
+            >
+              Type de Zone
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => onZoneTypeChange("polygon")}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  backgroundColor:
+                    zoneType === "polygon" ? colors.primary : colors.lightBg,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontWeight: zoneType === "polygon" ? "700" : "500",
+                    color:
+                      zoneType === "polygon" ? "white" : colors.textPrimary,
+                  }}
+                >
+                  Polygone
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onZoneTypeChange("circle")}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  backgroundColor:
+                    zoneType === "circle" ? colors.primary : colors.lightBg,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontWeight: zoneType === "circle" ? "700" : "500",
+                    color:
+                      zoneType === "circle" ? "white" : colors.textPrimary,
+                  }}
+                >
+                  Cercle
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Radius Control (Circle only) */}
+          {zoneType === "circle" && (
+            <View style={{ marginBottom: 20 }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "600",
+                  marginBottom: 8,
+                  textTransform: "uppercase",
+                  color: colors.textSecondary,
+                }}
+              >
+                Rayon : {(circleRadius / 1000).toFixed(1)} km
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() =>
+                    onCircleRadiusChange(Math.max(100, circleRadius - 100))
+                  }
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: colors.lightBg,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 20, color: colors.primary }}>−</Text>
+                </TouchableOpacity>
+                <Text
+                  style={{
+                    flex: 1,
+                    textAlign: "center",
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: colors.textPrimary,
+                  }}
+                >
+                  {circleRadius}m
+                </Text>
+                <TouchableOpacity
+                  onPress={() => onCircleRadiusChange(circleRadius + 100)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: colors.lightBg,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 20, color: colors.primary }}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Icon Selector */}
           <View style={{ marginBottom: 20 }}>

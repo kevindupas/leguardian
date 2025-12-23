@@ -337,13 +337,21 @@ export default function MapViewScreen() {
 
     try {
       console.log("[MapView] Calling createZone...");
-      const result = await createZone(selectedBraceletId, {
+      const zonePayload: any = {
         name: newZoneName,
         icon: selectedZoneIcon,
         coordinates: finalCoords,
         notify_on_entry: true,
         notify_on_exit: true,
-      });
+        type: drawingType,
+      };
+
+      // Add radius if it's a circle
+      if (drawingType === "circle") {
+        zonePayload.radius = circleRadius;
+      }
+
+      const result = await createZone(selectedBraceletId, zonePayload);
       console.log("[MapView] createZone result:", result);
       if (result) {
         setShowZoneModal(false);

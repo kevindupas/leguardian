@@ -9,6 +9,7 @@ use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
 use App\Models\BraceletTrackingHistory;
 use App\Services\ExpoPushNotificationService;
+use App\Services\DiscordEventService;
 use App\Helpers\GeofencingHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -111,6 +112,14 @@ class DeviceController extends Controller
             'bracelet_id' => $bracelet->id,
             'unique_code' => $bracelet->unique_code,
         ]);
+
+        // Send Discord notification
+        $discordService = new DiscordEventService();
+        $discordService->notifyDeviceOnline(
+            $bracelet->unique_code,
+            $bracelet->status,
+            $bracelet->battery_level
+        );
 
         return response()->json([
             'id' => $bracelet->id,

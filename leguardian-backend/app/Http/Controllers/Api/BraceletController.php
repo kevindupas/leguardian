@@ -7,6 +7,7 @@ use App\Models\Bracelet;
 use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
 use App\Models\BraceletTrackingHistory;
+use App\Services\DiscordEventService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -159,6 +160,19 @@ class BraceletController extends Controller
                 'user_id' => $userId,
             ]);
         }
+
+        // Send Discord notification
+        $discordService = new DiscordEventService();
+        $discordService->notifyBraceletRegistered(
+            [
+                'unique_code' => $bracelet->unique_code,
+                'alias' => $bracelet->alias,
+            ],
+            [
+                'name' => $request->user()->name,
+                'email' => $request->user()->email,
+            ]
+        );
 
         return response()->json([
             'bracelet' => $bracelet,

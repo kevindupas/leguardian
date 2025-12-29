@@ -34,9 +34,25 @@
 #define BUTTON_PIN 35
 
 #include <TinyGsmClient.h>
+#include <PubSubClient.h>
+
+// MQTT Configuration
+#define MQTT_SERVER "127.0.0.1"  // Change to your server IP or domain on production
+#define MQTT_PORT 9001  // WebSocket port
+#define MQTT_RECONNECT_INTERVAL 5000  // Reconnect every 5 seconds if disconnected
+
+// MQTT Topics
+#define MQTT_TOPIC_TELEMETRY "bracelets/" BRACELET_UNIQUE_CODE "/telemetry"
+#define MQTT_TOPIC_COMMANDS "bracelets/" BRACELET_UNIQUE_CODE "/commands"
+
+// MQTT Client
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+unsigned long lastMqttReconnect = 0;
+bool mqttConnected = false;
 
 TinyGsm modem(SerialAT);
-TinyGsmClient client(modem);  // SIM7600 supports HTTPS natively
+TinyGsmClient client(modem); // SIM7600 supports HTTPS natively
 bool imuReady = false;
 
 // Structure pour stocker les données GPS
@@ -113,9 +129,9 @@ enum LEDMode
 LEDMode currentLedMode = LED_OFF;
 
 // HTTP Configuration
-#define SERVER_URL "82.64.114.218" // Production API IP (tracklify.app)
-#define SERVER_PORT 80 // HTTP port (TinyGSM 0.11.7 doesn't support HTTPS, will use HTTP)
-#define SERVER_HOST "api.tracklify.app" // For Host header
+#define SERVER_URL "127.0.0.1"       // Production API IP (tracklify.app)
+#define SERVER_PORT 8000             // HTTP port (TinyGSM 0.11.7 doesn't support HTTPS, will use HTTP)
+#define SERVER_HOST "127.0.0.1:8000" // For Host header
 unsigned long lastDataSend = 0;
 #define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
 
@@ -139,17 +155,22 @@ String buildJsonPayload(const GPSData &gps, const IMUData &imu)
   float milliseconds = 0;
 
   // Try to get time from modem's internal clock (synchronized via 4G)
-  if (modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second, &milliseconds)) {
+  if (modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second, &milliseconds))
+  {
     // Format as ISO 8601: YYYY-MM-DDTHH:MM:SS
     // Pad with zeros for single digits
     char buf[25];
     snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
              year, month, day, hour, minute, second);
     timestamp = String(buf);
-  } else if (gps.date != "" && gps.time != "") {
+  }
+  else if (gps.date != "" && gps.time != "")
+  {
     // Fallback to GPS time if available
     timestamp = gps.date + "T" + gps.time + "Z";
-  } else {
+  }
+  else
+  {
     // Last resort: use current millis (will be converted on backend)
     timestamp = String(millis() / 1000); // Convert ms to seconds for better accuracy
   }
@@ -195,89 +216,67 @@ String buildJsonPayload(const GPSData &gps, const IMUData &imu)
   return json;
 }
 
-// Envoyer les données via HTTPS POST
-bool sendDataViaHTTP(const String &jsonData)
+void connectToMqtt()
 {
-  SerialMon.println("\n>> Envoi des données via HTTPS...");
+  if (millis() - lastMqttReconnect < MQTT_RECONNECT_INTERVAL)
+    return;
 
-  if (!client.connect(SERVER_URL, SERVER_PORT))
+  lastMqttReconnect = millis();
+
+  if (mqttClient.connected())
   {
-    SerialMon.println("✗ Impossible de se connecter au serveur (HTTPS)");
-    return false;
+    mqttConnected = true;
+    return;
   }
 
-  SerialMon.println("✓ Connecté au serveur (HTTPS)");
+  SerialMon.println("Attempting MQTT connection...");
 
-  // Construire la requête HTTP POST avec header d'identification
-  String endpoint = emergencyMode ? "/api/devices/danger/update" : "/api/devices/heartbeat";
-  String request = "POST " + endpoint + " HTTP/1.1\r\n";
-  request += "Host: " + String(SERVER_HOST) + "\r\n";
-  request += "Content-Type: application/json\r\n";
-  request += "Content-Length: " + String(jsonData.length()) + "\r\n";
-  request += "X-Bracelet-ID: " + String(BRACELET_UNIQUE_CODE) + "\r\n";
-  request += "Connection: close\r\n";
-  request += "\r\n";
-  request += jsonData;
-
-  // Envoyer la requête
-  client.print(request);
-
-  // LED vert clignote pendant l'envoi
-  leds.setPixelColor(0, leds.Color(0, 255, 0)); // Green
-  leds.show();
-  delay(100);
-  leds.setPixelColor(0, 0); // Off
-  leds.show();
-
-  // Attendre la réponse HTTP - juste lire le status line
-  delay(500); // Donner du temps au serveur
-  unsigned long timeout = millis() + 5000;
-  String statusLine = "";
-  bool gotStatusLine = false;
-
-  while (millis() < timeout)
+  if (mqttClient.connect(BRACELET_UNIQUE_CODE))
   {
-    if (client.available())
-    {
-      char c = client.read();
-      if (!gotStatusLine)
-      {
-        statusLine += c;
-        // Status line ends with \r\n
-        if (statusLine.endsWith("\r\n"))
-        {
-          gotStatusLine = true;
-          break;
-        }
-      }
-    }
+    SerialMon.println("✓ MQTT connected");
+    mqttConnected = true;
+
+    // Subscribe to commands topic
+    mqttClient.subscribe(MQTT_TOPIC_COMMANDS);
+
+    // LED indication: green on
+    leds.setPixelColor(0, leds.Color(0, 255, 0));
+    leds.show();
+  }
+  else
+  {
+    SerialMon.print("✗ MQTT failed, rc=");
+    SerialMon.println(mqttClient.state());
+    mqttConnected = false;
+
+    // LED indication: red flash
+    leds.setPixelColor(0, leds.Color(255, 0, 0));
+    leds.show();
+  }
+}
+
+void onMqttMessage(char *topic, byte *payload, unsigned int length)
+{
+  SerialMon.print("MQTT message received on topic: ");
+  SerialMon.println(topic);
+
+  // Convert payload to string
+  String message = "";
+  for (unsigned int i = 0; i < length; i++)
+  {
+    message += (char)payload[i];
   }
 
-  if (gotStatusLine)
+  SerialMon.print("Payload: ");
+  SerialMon.println(message);
+
+  // Handle commands from server
+  if (strcmp(topic, MQTT_TOPIC_COMMANDS) == 0)
   {
-    SerialMon.println("Status: " + statusLine);
-
-    // Vérifier le code de statut HTTP (200 ou 201)
-    if (statusLine.indexOf("200") > 0 || statusLine.indexOf("201") > 0)
-    {
-      SerialMon.println("✓ Données envoyées avec succès");
-      vibrate(100);
-
-      // LED vert fixe pendant 500ms
-      leds.setPixelColor(0, leds.Color(0, 255, 0));
-      leds.show();
-      delay(500);
-      leds.setPixelColor(0, 0);
-      leds.show();
-
-      client.stop();
-      return true;
-    }
+    // Parse JSON command
+    // Example: {"action": "vibrate", "duration": 200}
+    // Can add command handling here in future
   }
-
-  client.stop();
-  SerialMon.println("✗ Erreur lors de l'envoi des données");
-  return false;
 }
 
 // Fonction pour initialiser les LEDs
@@ -809,6 +808,15 @@ void setup()
     }
   }
 
+  // Initialize MQTT
+  SerialMon.println("\nInitializing MQTT...");
+  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+  mqttClient.setCallback(onMqttMessage);
+  mqttClient.setBufferSize(2048);  // For larger JSON payloads
+
+  // Attempt initial connection
+  connectToMqtt();
+
   SerialMon.println();
 
   SerialMon.println("Vérification état GPS:");
@@ -851,6 +859,12 @@ void loop()
   // Gestion du bouton
   handleButton();
 
+  // Maintain MQTT connection
+  if (mqttConnected)
+  {
+    mqttClient.loop();
+  }
+
   // Mise à jour des LEDs
   updateLeds();
 
@@ -871,33 +885,56 @@ void loop()
     lastAssociationCheck = now;
   }
 
-  // Send data based on mode - ONLY IF ASSOCIATED
+  // Ensure MQTT connection is maintained
+  connectToMqtt();
+
+  // Maintain MQTT loop
+  if (mqttConnected)
+  {
+    mqttClient.loop();
+  }
+
+  // Send data based on mode - ONLY IF ASSOCIATED AND MQTT CONNECTED
   unsigned long sendInterval = emergencyMode ? SEND_INTERVAL_EMERGENCY : SEND_INTERVAL_NORMAL;
 
-  if (braceletAssociated && (now - lastDataTransmission > sendInterval))
+  if (braceletAssociated && mqttConnected && (now - lastDataTransmission > sendInterval))
   {
-    SerialMon.println("\n📤 === Envoi des données ===");
+    SerialMon.println("\n📤 === Envoi des données via MQTT ===");
     String payload = buildJsonPayload(currentGpsData, currentImuData);
 
     SerialMon.print("Mode: ");
     SerialMon.println(emergencyMode ? "URGENCE" : "NORMAL");
+    SerialMon.print("Topic: ");
+    SerialMon.println(MQTT_TOPIC_TELEMETRY);
     SerialMon.print("Payload: ");
     SerialMon.println(payload);
 
-    if (sendDataViaHTTP(payload))
+    if (mqttClient.publish(MQTT_TOPIC_TELEMETRY, payload.c_str()))
     {
       lastDataTransmission = now;
-      SerialMon.println("✓ Transmission réussie");
+      SerialMon.println("✓ Transmission MQTT réussie");
+      vibrate(100);
+
+      // LED vert fixe pendant 500ms
+      leds.setPixelColor(0, leds.Color(0, 255, 0));
+      leds.show();
+      delay(500);
+      leds.setPixelColor(0, 0);
+      leds.show();
     }
     else
     {
-      SerialMon.println("✗ Transmission échouée - réessai dans " + String(sendInterval / 1000) + "s");
+      SerialMon.println("✗ Erreur MQTT publish");
     }
   }
   else if (!braceletAssociated && (now - lastDataTransmission > sendInterval))
   {
     SerialMon.println("⚠️  Not sending data - bracelet not associated");
-    lastDataTransmission = now; // Update timer so we don't spam
+    lastDataTransmission = now;
+  }
+  else if (!mqttConnected && braceletAssociated)
+  {
+    SerialMon.println("⚠️  Waiting for MQTT connection...");
   }
 
   // Petit délai pour ne pas surcharger

@@ -141,4 +141,58 @@ class Bracelet extends Model
     {
         return $query->where('is_paired', false)->whereNull('guardian_id');
     }
+
+    public function telemetryData()
+    {
+        return $this->hasMany(BraceletTelemetry::class);
+    }
+
+    public function updateTelemetry(array $telemetryData): void
+    {
+        // Parse timestamp
+        $timestamp = $telemetryData['timestamp'] ?? now();
+        if (is_string($timestamp)) {
+            $timestamp = \Carbon\Carbon::parse($timestamp);
+        }
+
+        // Create telemetry record
+        $this->telemetryData()->create([
+            'timestamp' => $timestamp,
+            'latitude' => $telemetryData['gps']['latitude'] ?? null,
+            'longitude' => $telemetryData['gps']['longitude'] ?? null,
+            'altitude' => $telemetryData['gps']['altitude'] ?? null,
+            'satellites' => $telemetryData['gps']['satellites'] ?? null,
+            'gps_date' => $telemetryData['gps']['date'] ?? null,
+            'gps_time' => $telemetryData['gps']['time'] ?? null,
+            'signal_csq' => $telemetryData['network']['signal_csq'] ?? null,
+            'rsrp' => $telemetryData['network']['rsrp'] ?? null,
+            'rsrq' => $telemetryData['network']['rsrq'] ?? null,
+            'network_type' => $telemetryData['network']['type'] ?? null,
+            'accel_x' => $telemetryData['imu']['accel']['x'] ?? null,
+            'accel_y' => $telemetryData['imu']['accel']['y'] ?? null,
+            'accel_z' => $telemetryData['imu']['accel']['z'] ?? null,
+            'gyro_x' => $telemetryData['imu']['gyro']['x'] ?? null,
+            'gyro_y' => $telemetryData['imu']['gyro']['y'] ?? null,
+            'gyro_z' => $telemetryData['imu']['gyro']['z'] ?? null,
+            'imu_temperature' => $telemetryData['imu']['temperature'] ?? null,
+            'emergency_mode' => $telemetryData['emergency_mode'] ?? false,
+        ]);
+
+        // Update last known location on bracelet record
+        if (isset($telemetryData['gps']['latitude']) && isset($telemetryData['gps']['longitude'])) {
+            $this->update([
+                'last_latitude' => $telemetryData['gps']['latitude'],
+                'last_longitude' => $telemetryData['gps']['longitude'],
+                'last_accuracy' => $telemetryData['gps']['altitude'] ?? null,
+                'last_location_update' => $timestamp,
+            ]);
+        }
+
+        // Update emergency mode status
+        if (isset($telemetryData['emergency_mode'])) {
+            $this->update([
+                'emergency_mode' => $telemetryData['emergency_mode'],
+            ]);
+        }
+    }
 }

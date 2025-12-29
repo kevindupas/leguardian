@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\MqttService;
-use App\Models\Device;
+use App\Models\Bracelet;
 use Illuminate\Support\Facades\Log;
 
 class MqttListenCommand extends Command
@@ -56,10 +56,10 @@ class MqttListenCommand extends Command
                 return;
             }
 
-            // Find device by unique code
-            $device = Device::where('unique_code', $braceletId)->first();
-            if (!$device) {
-                Log::warning('Device not found: ' . $braceletId);
+            // Find bracelet by unique code
+            $bracelet = Bracelet::where('unique_code', $braceletId)->first();
+            if (!$bracelet) {
+                Log::warning('Bracelet not found: ' . $braceletId);
                 return;
             }
 
@@ -71,7 +71,7 @@ class MqttListenCommand extends Command
             }
 
             // Store telemetry (create new record or update)
-            $device->updateTelemetry($data);
+            $bracelet->updateTelemetry($data);
 
             Log::info('Telemetry received from ' . $braceletId);
         } catch (\Exception $e) {

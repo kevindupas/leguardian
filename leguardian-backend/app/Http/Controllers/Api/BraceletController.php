@@ -8,6 +8,7 @@ use App\Models\BraceletEvent;
 use App\Models\BraceletCommand;
 use App\Models\BraceletTrackingHistory;
 use App\Services\DiscordEventService;
+use App\Services\MqttCommandService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -312,15 +313,62 @@ class BraceletController extends Controller
             'sos' => 'vibrate_sos',
         };
 
+        // Create command in database
         $command = BraceletCommand::create([
             'bracelet_id' => $bracelet->id,
             'command_type' => $commandType,
             'status' => 'pending',
         ]);
 
+        // Send command via MQTT to bracelet
+        $mqttService = new MqttCommandService();
+        $sent = $mqttService->sendCommand($command);
+
         return response()->json([
             'command_id' => $command->id,
-            'success' => true,
+            'success' => $sent,
+            'message' => $sent ? 'Command sent to bracelet' : 'Failed to send command to bracelet',
+        ]);
+    }
+
+    /**
+     * Send generic command to bracelet
+     * POST /api/mobile/bracelets/{id}/command
+     */
+    public function sendCommand(Request $request, Bracelet $bracelet)
+    {
+        // Check authorization
+        if ($bracelet->guardian_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'command_type' => 'required|string|in:vibrate_short,vibrate_medium,vibrate_sos,led_on,led_off,sync_time,configure_gps',
+            'led_color' => 'nullable|string|in:red,green,blue,yellow,white',
+            'led_pattern' => 'nullable|string|in:solid,blink,pulse',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Create command in database
+        $command = BraceletCommand::create([
+            'bracelet_id' => $bracelet->id,
+            'command_type' => $request->command_type,
+            'status' => 'pending',
+            'led_color' => $request->led_color,
+            'led_pattern' => $request->led_pattern,
+        ]);
+
+        // Send command via MQTT
+        $mqttService = new MqttCommandService();
+        $sent = $mqttService->sendCommand($command);
+
+        return response()->json([
+            'command_id' => $command->id,
+            'success' => $sent,
+            'message' => $sent ? 'Command sent to bracelet' : 'Failed to send command',
         ]);
     }
 

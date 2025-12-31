@@ -7,7 +7,6 @@
 #define TINY_GSM_MODEM_SIM7600
 #define TINY_GSM_RX_BUFFER 1024
 #define EEPROM_SIZE 512
-#define EEPROM_REGISTERED_FLAG 0 // Byte 0: flag indicating if bracelet has been registered
 
 #define SerialMon Serial
 #define SerialAT Serial1
@@ -37,9 +36,9 @@
 #include <PubSubClient.h>
 
 // MQTT Configuration
-#define MQTT_SERVER "127.0.0.1"  // Change to your server IP or domain on production
-#define MQTT_PORT 9001  // WebSocket port
-#define MQTT_RECONNECT_INTERVAL 5000  // Reconnect every 5 seconds if disconnected
+#define MQTT_SERVER "tracklify.app"  // Change to your server IP or domain on production
+#define MQTT_PORT 9001               // WebSocket port
+#define MQTT_RECONNECT_INTERVAL 5000 // Reconnect every 5 seconds if disconnected
 
 // MQTT Topics
 #define MQTT_TOPIC_TELEMETRY "bracelets/" BRACELET_UNIQUE_CODE "/telemetry"
@@ -52,7 +51,6 @@ unsigned long lastMqttReconnect = 0;
 bool mqttConnected = false;
 
 TinyGsm modem(SerialAT);
-TinyGsmClient client(modem); // SIM7600 supports HTTPS natively
 bool imuReady = false;
 
 // Structure pour stocker les données GPS
@@ -106,15 +104,9 @@ bool networkDataReady = false;
 bool imuDataReady = false;
 
 // Bracelet identification
-#define BRACELET_UNIQUE_CODE "ESP32_A7670E_001" // TODO: Use IMEI or generate UUID
+#define BRACELET_UNIQUE_CODE "XX_XXXX_001" // TODO: Use IMEI or generate UUID
 
-// Association status
-bool braceletAssociated = false;
-unsigned long lastAssociationCheck = 0;
-#define ASSOCIATION_CHECK_INTERVAL 3600000 // Check every 1 hour
-
-// First-boot registration
-bool braceletRegistered = false;
+// MQTT: Auto-registration happens when first telemetry is sent
 
 // Bouton
 bool lastButtonState = HIGH;
@@ -127,13 +119,6 @@ enum LEDMode
   LED_NORMAL
 };
 LEDMode currentLedMode = LED_OFF;
-
-// HTTP Configuration
-#define SERVER_URL "127.0.0.1"       // Production API IP (tracklify.app)
-#define SERVER_PORT 8000             // HTTP port (TinyGSM 0.11.7 doesn't support HTTPS, will use HTTP)
-#define SERVER_HOST "127.0.0.1:8000" // For Host header
-unsigned long lastDataSend = 0;
-#define SEND_INTERVAL 30000 // Envoyer tous les 30 secondes
 
 // Fonction vibreur
 void vibrate(int duration)
@@ -255,6 +240,88 @@ void connectToMqtt()
   }
 }
 
+void handleCommand(const String &commandType, int duration = 0, const String &ledColor = "", const String &ledPattern = "")
+{
+  SerialMon.println("⚙️ HANDLING COMMAND: " + commandType);
+
+  if (commandType == "vibrate_short")
+  {
+    vibrate(100);
+  }
+  else if (commandType == "vibrate_medium")
+  {
+    vibrate(300);
+  }
+  else if (commandType == "vibrate_sos")
+  {
+    // SOS pattern: long long short
+    vibrate(200);
+    delay(100);
+    vibrate(200);
+    delay(100);
+    vibrate(100);
+  }
+  else if (commandType == "led_on")
+  {
+    uint32_t color = leds.Color(0, 255, 0); // Default green
+
+    if (ledColor == "red")
+    {
+      color = leds.Color(255, 0, 0);
+    }
+    else if (ledColor == "blue")
+    {
+      color = leds.Color(0, 0, 255);
+    }
+    else if (ledColor == "yellow")
+    {
+      color = leds.Color(255, 255, 0);
+    }
+    else if (ledColor == "white")
+    {
+      color = leds.Color(255, 255, 255);
+    }
+
+    if (ledPattern == "blink")
+    {
+      currentLedMode = LED_BLINKING;
+    }
+    else
+    {
+      // Solid color
+      for (int i = 0; i < NUM_LEDS; i++)
+      {
+        leds.setPixelColor(i, color);
+      }
+      leds.show();
+    }
+  }
+  else if (commandType == "led_off")
+  {
+    leds.clear();
+    leds.show();
+  }
+  else if (commandType == "enable_emergency_mode")
+  {
+    emergencyMode = true;
+    SerialMon.println("🚨 SERVER ACTIVATED EMERGENCY MODE");
+  }
+  else if (commandType == "disable_emergency_mode")
+  {
+    emergencyMode = false;
+    SerialMon.println("✓ SERVER DISABLED EMERGENCY MODE");
+  }
+  else if (commandType == "sync_time")
+  {
+    SerialMon.println("⏰ TIME SYNC COMMAND RECEIVED");
+    // Will be synced with next MQTT message timestamp
+  }
+  else
+  {
+    SerialMon.println("❓ UNKNOWN COMMAND: " + commandType);
+  }
+}
+
 void onMqttMessage(char *topic, byte *payload, unsigned int length)
 {
   SerialMon.print("MQTT message received on topic: ");
@@ -274,8 +341,85 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, MQTT_TOPIC_COMMANDS) == 0)
   {
     // Parse JSON command
-    // Example: {"action": "vibrate", "duration": 200}
-    // Can add command handling here in future
+    // Example: {"command_id": 1, "command_type": "vibrate_short", "timestamp": "2025-12-29T15:30:00Z"}
+
+    // Simple JSON parsing (without external library)
+    String commandType = "";
+    int commandId = 0;
+    String ledColor = "";
+    String ledPattern = "";
+
+    // Extract command_id
+    int idStart = message.indexOf("\"command_id\":");
+    if (idStart != -1)
+    {
+      idStart = message.indexOf(":", idStart) + 1;
+      int idEnd = message.indexOf(",", idStart);
+      if (idEnd == -1)
+        idEnd = message.indexOf("}", idStart);
+      commandId = message.substring(idStart, idEnd).toInt();
+    }
+
+    // Extract command_type
+    int typeStart = message.indexOf("\"command_type\":");
+    if (typeStart != -1)
+    {
+      typeStart = message.indexOf("\"", typeStart + 15) + 1;
+      int typeEnd = message.indexOf("\"", typeStart);
+      commandType = message.substring(typeStart, typeEnd);
+    }
+
+    // Extract led_color if present
+    int colorStart = message.indexOf("\"color\":");
+    if (colorStart != -1)
+    {
+      colorStart = message.indexOf("\"", colorStart + 8) + 1;
+      int colorEnd = message.indexOf("\"", colorStart);
+      ledColor = message.substring(colorStart, colorEnd);
+    }
+
+    // Extract led_pattern if present
+    int patternStart = message.indexOf("\"pattern\":");
+    if (patternStart != -1)
+    {
+      patternStart = message.indexOf("\"", patternStart + 10) + 1;
+      int patternEnd = message.indexOf("\"", patternStart);
+      ledPattern = message.substring(patternStart, patternEnd);
+    }
+
+    if (commandType != "")
+    {
+      // Execute the command
+      handleCommand(commandType, 0, ledColor, ledPattern);
+
+      // Send ACK back to server
+      if (commandId > 0)
+      {
+        String ackPayload = "{\"command_id\":" + String(commandId) + ",\"status\":\"executed\",\"timestamp\":\"";
+
+        // Add current timestamp
+        int year, month, day, hour, minute, second;
+        float milliseconds = 0;
+        if (modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second, &milliseconds))
+        {
+          char timeBuf[25];
+          snprintf(timeBuf, sizeof(timeBuf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                   year, month, day, hour, minute, second);
+          ackPayload += String(timeBuf);
+        }
+        else
+        {
+          ackPayload += String(millis() / 1000);
+        }
+
+        ackPayload += "\"}";
+
+        // Publish ACK
+        String ackTopic = "bracelets/" + String(BRACELET_UNIQUE_CODE) + "/ack";
+        mqttClient.publish(ackTopic.c_str(), ackPayload.c_str());
+        SerialMon.println("✓ ACK sent: " + ackPayload);
+      }
+    }
   }
 }
 
@@ -465,154 +609,6 @@ void collectImuData()
   SerialMon.println("✓ IMU data collected");
 }
 
-// Register bracelet on first boot
-bool registerBracelet()
-{
-  SerialMon.println("\n>> Registering bracelet on first boot (HTTPS)...");
-
-  if (!client.connect(SERVER_URL, SERVER_PORT))
-  {
-    SerialMon.println("✗ Cannot connect to server for registration");
-    return false;
-  }
-
-  // Build JSON payload
-  String jsonPayload = "{\"unique_code\":\"" + String(BRACELET_UNIQUE_CODE) + "\"}";
-
-  String request = "POST /api/devices/register HTTP/1.1\r\n";
-  request += "Host: " + String(SERVER_HOST) + "\r\n";
-  request += "Content-Type: application/json\r\n";
-  request += "Content-Length: " + String(jsonPayload.length()) + "\r\n";
-  request += "Connection: close\r\n";
-  request += "\r\n";
-  request += jsonPayload;
-
-  client.print(request);
-
-  delay(500); // Give server time to respond
-
-  unsigned long timeout = millis() + 10000; // Increased to 10 seconds
-  String response = "";
-  bool gotData = false;
-
-  while (millis() < timeout)
-  {
-    if (client.available())
-    {
-      char c = client.read();
-      response += c;
-      gotData = true;
-    }
-    else if (gotData && !client.connected())
-    {
-      // We got some data and connection is closed, we're done
-      break;
-    }
-    delay(10); // Small delay to avoid spinning
-  }
-
-  if (response.length() > 0)
-  {
-    SerialMon.println("Registration response:");
-    SerialMon.println(response);
-
-    if (response.indexOf("\"id\"") > 0)
-    {
-      SerialMon.println("✓ Bracelet registered successfully");
-
-      // Mark as registered in EEPROM
-      EEPROM.write(EEPROM_REGISTERED_FLAG, 1);
-      EEPROM.commit();
-
-      return true;
-    }
-    else
-    {
-      SerialMon.println("✗ Registration failed");
-      return false;
-    }
-  }
-
-  client.stop();
-  SerialMon.println("✗ Registration timeout");
-  return false;
-}
-
-// Check if bracelet is associated with a user
-bool checkAssociation()
-{
-  SerialMon.println("\n>> Checking association (HTTPS)...");
-
-  if (!client.connect(SERVER_URL, SERVER_PORT))
-  {
-    SerialMon.println("✗ Cannot connect to server for association check");
-    return false;
-  }
-
-  String request = "GET /api/devices/check-association HTTP/1.1\r\n";
-  request += "Host: " + String(SERVER_HOST) + "\r\n";
-  request += "X-Bracelet-ID: " + String(BRACELET_UNIQUE_CODE) + "\r\n";
-  request += "Connection: close\r\n";
-  request += "\r\n";
-
-  client.print(request);
-
-  delay(500); // Give server time to respond
-
-  unsigned long timeout = millis() + 10000; // Increased to 10 seconds
-  String response = "";
-  bool gotData = false;
-
-  while (millis() < timeout)
-  {
-    if (client.available())
-    {
-      char c = client.read();
-      response += c;
-      gotData = true;
-    }
-    else if (gotData && !client.connected())
-    {
-      // We got some data and connection is closed, we're done
-      break;
-    }
-    delay(10); // Small delay to avoid spinning
-  }
-
-  if (response.length() > 0)
-  {
-    SerialMon.println("Association response:");
-    SerialMon.println(response);
-
-    // Look for "associated":true in the response (without escaping the quotes)
-    if (response.indexOf("associated") > 0)
-    {
-      // Parse the JSON value: look for true or false after "associated"
-      int associatedIdx = response.indexOf("associated");
-      int colonIdx = response.indexOf(":", associatedIdx);
-
-      if (colonIdx > 0)
-      {
-        // Skip whitespace and get the value
-        String valueStr = response.substring(colonIdx + 1);
-
-        if (valueStr.indexOf("true") == 0 || valueStr.indexOf("true") < 10)
-        {
-          SerialMon.println("✓ Bracelet is associated");
-          return true;
-        }
-      }
-    }
-
-    SerialMon.println("✗ Bracelet is NOT associated");
-    return false;
-  }
-
-  client.stop();
-  SerialMon.println("✗ Association check timeout");
-  return false;
-}
-
 void setup()
 {
   SerialMon.begin(115200);
@@ -620,18 +616,8 @@ void setup()
 
   SerialMon.println("\n=== GPS A7670E ===\n");
 
-  // Initialize EEPROM for first-boot detection
+  // Initialize EEPROM
   EEPROM.begin(EEPROM_SIZE);
-  braceletRegistered = EEPROM.read(EEPROM_REGISTERED_FLAG);
-
-  // DEBUG: Reset EEPROM flag to force re-registration (comment out after testing)
-  EEPROM.write(EEPROM_REGISTERED_FLAG, 0);
-  EEPROM.commit();
-  braceletRegistered = 0;
-  SerialMon.println("DEBUG: EEPROM flag reset - forcing re-registration");
-
-  SerialMon.print("EEPROM: Bracelet registered = ");
-  SerialMon.println(braceletRegistered);
 
   // Init Vibreur
   pinMode(VIBRER_PIN, OUTPUT);
@@ -812,7 +798,7 @@ void setup()
   SerialMon.println("\nInitializing MQTT...");
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setCallback(onMqttMessage);
-  mqttClient.setBufferSize(2048);  // For larger JSON payloads
+  mqttClient.setBufferSize(2048); // For larger JSON payloads
 
   // Attempt initial connection
   connectToMqtt();
@@ -826,30 +812,8 @@ void setup()
   modem.sendAT("+CGNSSMODE?");
   modem.waitResponse(2000);
 
-  // Auto-register bracelet on first boot if not already registered
-  if (!braceletRegistered)
-  {
-    SerialMon.println("\n=== First Boot - Auto Registration ===");
-    registerBracelet();
-  }
-  else
-  {
-    SerialMon.println("\n=== Bracelet Already Registered ===");
-  }
-
-  // Check if bracelet is associated with a user
-  SerialMon.println("\n=== Association Check ===");
-  braceletAssociated = checkAssociation();
-  lastAssociationCheck = millis();
-
-  if (braceletAssociated)
-  {
-    SerialMon.println("✓ Bracelet will send data");
-  }
-  else
-  {
-    SerialMon.println("⚠️  Bracelet is not associated - data will NOT be sent");
-  }
+  SerialMon.println("\n=== MQTT Ready ===");
+  SerialMon.println("✓ Bracelet will auto-register on first telemetry");
 }
 
 void loop()
@@ -878,13 +842,6 @@ void loop()
     lastDataCollection = now;
   }
 
-  // Check association periodically
-  if (now - lastAssociationCheck > ASSOCIATION_CHECK_INTERVAL)
-  {
-    braceletAssociated = checkAssociation();
-    lastAssociationCheck = now;
-  }
-
   // Ensure MQTT connection is maintained
   connectToMqtt();
 
@@ -894,10 +851,10 @@ void loop()
     mqttClient.loop();
   }
 
-  // Send data based on mode - ONLY IF ASSOCIATED AND MQTT CONNECTED
+  // Send data based on mode - MQTT will auto-register bracelet on first message
   unsigned long sendInterval = emergencyMode ? SEND_INTERVAL_EMERGENCY : SEND_INTERVAL_NORMAL;
 
-  if (braceletAssociated && mqttConnected && (now - lastDataTransmission > sendInterval))
+  if (mqttConnected && (now - lastDataTransmission > sendInterval))
   {
     SerialMon.println("\n📤 === Envoi des données via MQTT ===");
     String payload = buildJsonPayload(currentGpsData, currentImuData);
@@ -927,12 +884,7 @@ void loop()
       SerialMon.println("✗ Erreur MQTT publish");
     }
   }
-  else if (!braceletAssociated && (now - lastDataTransmission > sendInterval))
-  {
-    SerialMon.println("⚠️  Not sending data - bracelet not associated");
-    lastDataTransmission = now;
-  }
-  else if (!mqttConnected && braceletAssociated)
+  else if (!mqttConnected)
   {
     SerialMon.println("⚠️  Waiting for MQTT connection...");
   }

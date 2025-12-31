@@ -16,12 +16,14 @@ class BraceletCommand extends Model
         'executed_at',
         'led_color',
         'led_pattern',
+        'metadata',
     ];
 
     protected $casts = [
         'executed_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     // Relations

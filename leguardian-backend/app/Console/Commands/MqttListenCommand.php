@@ -56,11 +56,14 @@ class MqttListenCommand extends Command
                 return;
             }
 
-            // Find bracelet by unique code
+            // Find bracelet by unique code, or create it if it doesn't exist
             $bracelet = Bracelet::where('unique_code', $braceletId)->first();
             if (!$bracelet) {
-                Log::warning('Bracelet not found: ' . $braceletId);
-                return;
+                $bracelet = $this->registerNewBracelet($braceletId);
+                if (!$bracelet) {
+                    Log::warning('Failed to register new bracelet: ' . $braceletId);
+                    return;
+                }
             }
 
             // Parse JSON message
@@ -76,6 +79,25 @@ class MqttListenCommand extends Command
             Log::info('Telemetry received from ' . $braceletId);
         } catch (\Exception $e) {
             Log::error('Error processing MQTT telemetry: ' . $e->getMessage());
+        }
+    }
+
+    private function registerNewBracelet(string $uniqueCode): ?Bracelet
+    {
+        try {
+            $bracelet = Bracelet::create([
+                'unique_code' => $uniqueCode,
+                'name' => 'Bracelet ' . $uniqueCode,
+                'status' => 'offline',
+                'is_paired' => false,
+                'battery_level' => 0,
+            ]);
+
+            Log::info('New bracelet auto-registered: ' . $uniqueCode . ' (ID: ' . $bracelet->id . ')');
+            return $bracelet;
+        } catch (\Exception $e) {
+            Log::error('Error registering bracelet ' . $uniqueCode . ': ' . $e->getMessage());
+            return null;
         }
     }
 }

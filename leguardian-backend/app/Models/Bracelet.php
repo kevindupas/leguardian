@@ -178,21 +178,31 @@ class Bracelet extends Model
             'emergency_mode' => $telemetryData['emergency_mode'] ?? false,
         ]);
 
+        // Build update data
+        $updateData = [
+            'status' => 'online',
+            'last_ping_at' => $timestamp,
+        ];
+
         // Update last known location on bracelet record
         if (isset($telemetryData['gps']['latitude']) && isset($telemetryData['gps']['longitude'])) {
-            $this->update([
-                'last_latitude' => $telemetryData['gps']['latitude'],
-                'last_longitude' => $telemetryData['gps']['longitude'],
-                'last_accuracy' => $telemetryData['gps']['altitude'] ?? null,
-                'last_location_update' => $timestamp,
-            ]);
+            $updateData['last_latitude'] = $telemetryData['gps']['latitude'];
+            $updateData['last_longitude'] = $telemetryData['gps']['longitude'];
+            $updateData['last_accuracy'] = $telemetryData['gps']['altitude'] ?? null;
+            $updateData['last_location_update'] = $timestamp;
         }
 
         // Update emergency mode status
         if (isset($telemetryData['emergency_mode'])) {
-            $this->update([
-                'emergency_mode' => $telemetryData['emergency_mode'],
-            ]);
+            $updateData['emergency_mode'] = $telemetryData['emergency_mode'];
         }
+
+        // Update battery level if provided
+        if (isset($telemetryData['battery_level'])) {
+            $updateData['battery_level'] = $telemetryData['battery_level'];
+        }
+
+        // Perform single update with all data
+        $this->update($updateData);
     }
 }
